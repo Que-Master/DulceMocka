@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dulce Mocka — Tienda de Dulces</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="logo">Dulce Mocka</div>
+      </div>
+
+      <div class="search-wrap">
+        <input id="search" class="search" placeholder="Buscar productos..." />
+        <button class="search-btn">🔍</button>
+      </div>
+
+      <div class="actions">
+        <button class="icon">🛒 Carrito</button>
+        <button class="btn outline">Iniciar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero container-hero">
+      <div class="hero-box container">
+        <h2>Dulce Shakes <span class="cup">🥤</span></h2>
+        <p>Los mejores batidos y bebidas personalizadas de la ciudad</p>
+      </div>
+    </section>
+
+    <section id="productos" class="productos container">
+      <h3>Productos Destacados</h3>
+      <div class="categories" id="categories"></div>
+      <div class="grid" id="productsGrid">
+        <!-- Productos cargados dinámicamente -->
+      </div>
+    </section>
+
+    <section id="contacto" class="contacto container">
+      <h3>Contacto</h3>
+      <p>Escríbenos a <a href="mailto:info@dulcemocka.com">info@dulcemocka.com</a> o visítanos en la tienda.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">© 2026 Dulce Mocka — Todos los derechos reservados</div>
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>

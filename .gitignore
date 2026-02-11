@@ -1,0 +1,57 @@
+# Node modules
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+debug.log*
+
+# Environment files
+.env
+.env.*.local
+local.env
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Build / output
+dist/
+build/
+.next/
+.nuxt/
+out/
+coverage/
+.nyc_output/
+.parcel-cache/
+.cache/
+
+# Temporary
+tmp/
+temp/
+logs/
+
+# Serverless / containers
+.serverless/
+.docker/
+docker-compose.override.yml
+
+# Yarn PnP
+.pnp.*
+
+# Uploaded files and user content
+public/uploads/
+uploads/
+
+# Misc
+*.tgz
+*.log
+*.swp
