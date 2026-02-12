@@ -12,7 +12,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const CALLBACK_URL         = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback';
 
 passport.serializeUser((user, done) => done(null, user.id));
-
+      
 passport.deserializeUser((id, done) => {
   db.query('SELECT id, nombre, correo, telefono, googleId, rolId FROM usuario WHERE id = ?', [id], (err, rows) => {
     if (err) return done(err);

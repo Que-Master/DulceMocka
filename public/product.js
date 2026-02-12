@@ -63,13 +63,18 @@ async function loadProduct() {
   const precio = parseFloat(producto.precio) || 0;
 
   /* ── HTML ── */
+  const hasImage = producto.imagen && (producto.imagen.startsWith('http://') || producto.imagen.startsWith('https://'));
+  const imageHtml = hasImage
+    ? '<div class="product-image-large" style="background:none"><img src="' + producto.imagen + '" alt="' + producto.nombre + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"/></div>'
+    : '<div class="product-image-large">🍦</div>';
+
   $root.innerHTML = `
     <nav class="breadcrumb">
       <a href="/">Home</a> / <span>${catNombre}</span> / <span>${producto.nombre}</span>
     </nav>
 
     <div class="product-header">
-      <div class="product-image-large">🍦</div>
+      ${imageHtml}
       <div class="product-basic-info">
         <h1>${producto.nombre}</h1>
         <p class="category-badge">${catNombre.toUpperCase()}</p>

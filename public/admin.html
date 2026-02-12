@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — Dulce Mocka</title>
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <div class="admin-layout">
+
+    <!-- ═══ SIDEBAR ═══ -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">🧁</span>
+        <h1>Dulce Mocka</h1>
+        <small>Panel Admin</small>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-section="dashboard">📊 Dashboard</button>
+        <button class="nav-item" data-section="orders">📦 Pedidos</button>
+        <button class="nav-item" data-section="products">🧃 Productos</button>
+        <button class="nav-item" data-section="categories">📂 Categorías</button>
+        <button class="nav-item" data-section="users">👥 Usuarios</button>
+        <button class="nav-item" data-section="sectors">📍 Sectores</button>
+        <button class="nav-item" data-section="coupons">🎟️ Cupones</button>
+        <button class="nav-item" data-section="ingredients">🧪 Ingredientes</button>
+        <button class="nav-item" data-section="slider">🖼️ Slider</button>
+        <button class="nav-item" data-section="canjes">🏆 Canjes</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a href="/" class="nav-item">🏠 Ir a la tienda</a>
+        <button class="nav-item logout" id="adminLogout">🚪 Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <!-- ═══ MAIN ═══ -->
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h2 id="sectionTitle">Dashboard</h2>
+        <div class="topbar-user">
+          <span id="adminName">Admin</span>
+          <div class="admin-avatar" id="adminAvatar">A</div>
+        </div>
+      </header>
+
+      <div class="admin-content" id="adminContent">
+
+        <!-- ─── DASHBOARD ─── -->
+        <section class="section active" id="sec-dashboard">
+          <div class="stats-grid" id="statsGrid"></div>
+          <div class="dash-grid">
+            <div class="card"><h3>Pedidos por estado</h3><div id="ordersByStatus"></div></div>
+            <div class="card"><h3>Top 5 productos</h3><div id="topProducts"></div></div>
+          </div>
+          <div class="card"><h3>Ventas últimos 7 días</h3><div id="salesWeek"></div></div>
+          <div class="card"><h3>Pedidos recientes</h3><div id="recentOrders"></div></div>
+        </section>
+
+        <!-- ─── PEDIDOS ─── -->
+        <section class="section" id="sec-orders">
+          <div class="section-header">
+            <h3>Gestión de Pedidos</h3>
+          </div>
+          <div class="table-wrap"><table class="admin-table" id="ordersTable"><thead><tr>
+            <th>#</th><th>Cliente</th><th>Total</th><th>Entrega</th><th>Estado</th><th>Fecha</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <!-- Order detail modal -->
+          <div class="modal-overlay" id="orderModal">
+            <div class="modal-card modal-lg">
+              <div class="modal-header"><h3>Detalle del Pedido</h3><button class="modal-close" data-close="orderModal">✕</button></div>
+              <div id="orderDetailContent"></div>
+            </div>
+          </div>
+          <!-- Cancel reason modal -->
+          <div class="modal-overlay" id="cancelModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3>Motivo de cancelación</h3><button class="modal-close" data-close="cancelModal">✕</button></div>
+              <div style="padding:1.5rem">
+                <p style="margin-bottom:1rem;color:#555">El cliente será notificado con el motivo que indiques:</p>
+                <textarea id="cancelReason" rows="4" class="form-control" placeholder="Ej: Producto agotado, dirección fuera de cobertura..." style="width:100%;padding:.75rem;border:1px solid #ddd;border-radius:8px;font-size:.95rem;resize:vertical"></textarea>
+                <div class="form-actions" style="margin-top:1rem;display:flex;gap:.5rem;justify-content:flex-end">
+                  <button type="button" class="btn outline" data-close="cancelModal">Volver</button>
+                  <button type="button" class="btn" id="confirmCancelBtn" style="background:#e74c3c">Confirmar cancelación</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── PRODUCTOS ─── -->
+        <section class="section" id="sec-products">
+          <div class="section-header">
+            <h3>Gestión de Productos</h3>
+            <button class="btn" id="btnAddProduct">+ Nuevo producto</button>
+          </div>
+          <div class="table-wrap"><table class="admin-table" id="productsTable"><thead><tr>
+            <th>Nombre</th><th>Categoría</th><th>Precio</th><th>Ingredientes</th><th>Estado</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <div class="modal-overlay" id="productModal">
+            <div class="modal-card modal-lg">
+              <div class="modal-header"><h3 id="productModalTitle">Nuevo producto</h3><button class="modal-close" data-close="productModal">✕</button></div>
+              <form id="productForm">
+                <input type="hidden" id="prod-id"/>
+                <div class="form-group"><label>Nombre *</label><input type="text" id="prod-nombre" required/></div>
+                <div class="form-row">
+                  <div class="form-group"><label>Precio *</label><input type="number" id="prod-precio" step="0.01" required/></div>
+                  <div class="form-group"><label>Categoría</label><select id="prod-categoria"><option value="">Sin categoría</option></select></div>
+                </div>
+                <div class="form-group"><label>Descripción</label><textarea id="prod-descripcion" rows="3"></textarea></div>
+                <div class="form-group"><label>URL Imagen</label><input type="text" id="prod-imagen" placeholder="https://..."/></div>
+                <div class="form-row">
+                  <div class="form-group checkbox-group"><label class="checkbox-label"><input type="checkbox" id="prod-activo" checked/><span>Activo</span></label></div>
+                  <div class="form-group"><label>🏆 Costo Mocka Points <small>(dejar vacío si no es canjeable)</small></label><input type="number" id="prod-mockapoints" min="1" placeholder="Ej: 100"/></div>
+                </div>
+
+                <!-- Ingredientes del producto -->
+                <div class="form-group">
+                  <label>Ingredientes</label>
+                  <p class="form-hint">Selecciona los ingredientes del producto. Marca si vienen incluidos por defecto y si el cliente puede quitarlos.</p>
+                  <div class="ingredients-grid" id="prod-ingredientes-list">
+                    <!-- Se llena dinámicamente -->
+                  </div>
+                </div>
+
+                <div class="form-actions"><button type="button" class="btn outline" data-close="productModal">Cancelar</button><button type="submit" class="btn">Guardar</button></div>
+                <span class="form-msg" id="productMsg"></span>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── CATEGORÍAS ─── -->
+        <section class="section" id="sec-categories">
+          <div class="section-header">
+            <h3>Gestión de Categorías</h3>
+            <button class="btn" id="btnAddCategory">+ Nueva categoría</button>
+          </div>
+          <div class="table-wrap"><table class="admin-table" id="categoriesTable"><thead><tr>
+            <th>Nombre</th><th>Descripción</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <div class="modal-overlay" id="categoryModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3 id="categoryModalTitle">Nueva categoría</h3><button class="modal-close" data-close="categoryModal">✕</button></div>
+              <form id="categoryForm">
+                <input type="hidden" id="cat-id"/>
+                <div class="form-group"><label>Nombre *</label><input type="text" id="cat-nombre" required/></div>
+                <div class="form-group"><label>Descripción</label><textarea id="cat-descripcion" rows="2"></textarea></div>
+                <div class="form-actions"><button type="button" class="btn outline" data-close="categoryModal">Cancelar</button><button type="submit" class="btn">Guardar</button></div>
+                <span class="form-msg" id="categoryMsg"></span>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── USUARIOS ─── -->
+        <section class="section" id="sec-users">
+          <div class="section-header"><h3>Gestión de Usuarios</h3></div>
+          <div class="table-wrap"><table class="admin-table" id="usersTable"><thead><tr>
+            <th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Rol</th><th>Puntos</th><th>Estado</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <div class="modal-overlay" id="userModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3>Editar Usuario</h3><button class="modal-close" data-close="userModal">✕</button></div>
+              <form id="userForm">
+                <input type="hidden" id="user-id"/>
+                <div class="form-group"><label>Nombre</label><input type="text" id="user-nombre" required/></div>
+                <div class="form-row">
+                  <div class="form-group"><label>Teléfono</label><input type="text" id="user-telefono"/></div>
+                  <div class="form-group"><label>Rol</label><select id="user-rol"><option value="">Sin rol</option></select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>Mocka Points</label><input type="number" id="user-points" min="0"/></div>
+                  <div class="form-group checkbox-group"><label class="checkbox-label"><input type="checkbox" id="user-activo" checked/><span>Activo</span></label></div>
+                </div>
+                <div class="form-actions"><button type="button" class="btn outline" data-close="userModal">Cancelar</button><button type="submit" class="btn">Guardar</button></div>
+                <span class="form-msg" id="userMsg"></span>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── SECTORES ─── -->
+        <section class="section" id="sec-sectors">
+          <div class="section-header">
+            <h3>Gestión de Sectores</h3>
+            <button class="btn" id="btnAddSector">+ Nuevo sector</button>
+          </div>
+          <div class="table-wrap"><table class="admin-table" id="sectorsTable"><thead><tr>
+            <th>Nombre</th><th>Descripción</th><th>Precio Envío</th><th>Estado</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <div class="modal-overlay" id="sectorModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3 id="sectorModalTitle">Nuevo sector</h3><button class="modal-close" data-close="sectorModal">✕</button></div>
+              <form id="sectorForm">
+                <input type="hidden" id="sec-id"/>
+                <div class="form-group"><label>Nombre *</label><input type="text" id="sec-nombre" required/></div>
+                <div class="form-group"><label>Descripción</label><textarea id="sec-descripcion" rows="2"></textarea></div>
+                <div class="form-group"><label>Precio de envío (RD$) *</label><input type="number" id="sec-precio" step="0.01" required/></div>
+                <div class="form-group checkbox-group"><label class="checkbox-label"><input type="checkbox" id="sec-activo" checked/><span>Activo</span></label></div>
+                <div class="form-actions"><button type="button" class="btn outline" data-close="sectorModal">Cancelar</button><button type="submit" class="btn">Guardar</button></div>
+                <span class="form-msg" id="sectorMsg"></span>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── CUPONES ─── -->
+        <section class="section" id="sec-coupons">
+          <div class="section-header">
+            <h3>Gestión de Cupones</h3>
+            <button class="btn" id="btnAddCoupon">+ Nuevo cupón</button>
+          </div>
+          <div class="table-wrap"><table class="admin-table" id="couponsTable"><thead><tr>
+            <th>Nombre</th><th>Código</th><th>Descuento</th><th>Mín. Compra</th><th>Stock</th><th>Vence</th><th>Estado</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <div class="modal-overlay" id="couponModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3 id="couponModalTitle">Nuevo cupón</h3><button class="modal-close" data-close="couponModal">✕</button></div>
+              <form id="couponForm">
+                <input type="hidden" id="cup-id"/>
+                <div class="form-row">
+                  <div class="form-group"><label>Nombre *</label><input type="text" id="cup-nombre" required/></div>
+                  <div class="form-group"><label>Código *</label><input type="text" id="cup-codigo" required style="text-transform:uppercase"/></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>% Descuento</label><input type="number" id="cup-porcentaje" step="0.01" min="0" max="100"/></div>
+                  <div class="form-group"><label>Límite descuento (RD$)</label><input type="number" id="cup-limite" step="0.01"/></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>Mínimo de compra (RD$)</label><input type="number" id="cup-minimo" step="0.01"/></div>
+                  <div class="form-group"><label>Stock disponible</label><input type="number" id="cup-stock" min="0"/></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>Fecha vencimiento</label><input type="datetime-local" id="cup-vence"/></div>
+                  <div class="form-group checkbox-group"><label class="checkbox-label"><input type="checkbox" id="cup-activo" checked/><span>Activo</span></label></div>
+                </div>
+                <div class="form-actions"><button type="button" class="btn outline" data-close="couponModal">Cancelar</button><button type="submit" class="btn">Guardar</button></div>
+                <span class="form-msg" id="couponMsg"></span>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── INGREDIENTES ─── -->
+        <section class="section" id="sec-ingredients">
+          <div class="section-header">
+            <h3>Gestión de Ingredientes</h3>
+            <button class="btn" id="btnAddIngredient">+ Nuevo ingrediente</button>
+          </div>
+          <div class="table-wrap"><table class="admin-table" id="ingredientsTable"><thead><tr>
+            <th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <div class="modal-overlay" id="ingredientModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3 id="ingredientModalTitle">Nuevo ingrediente</h3><button class="modal-close" data-close="ingredientModal">✕</button></div>
+              <form id="ingredientForm">
+                <input type="hidden" id="ing-id"/>
+                <div class="form-group"><label>Nombre *</label><input type="text" id="ing-nombre" required/></div>
+                <div class="form-group"><label>Descripción</label><textarea id="ing-descripcion" rows="2"></textarea></div>
+                <div class="form-group checkbox-group"><label class="checkbox-label"><input type="checkbox" id="ing-activo" checked/><span>Activo</span></label></div>
+                <div class="form-actions"><button type="button" class="btn outline" data-close="ingredientModal">Cancelar</button><button type="submit" class="btn">Guardar</button></div>
+                <span class="form-msg" id="ingredientMsg"></span>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── SLIDER ─── -->
+        <section class="section" id="sec-slider">
+          <div class="section-header">
+            <h3>Gestión del Slider</h3>
+            <button class="btn" id="btnAddSlide">+ Nueva imagen</button>
+          </div>
+          <div id="sliderPreview" style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.25rem"></div>
+          <div class="table-wrap"><table class="admin-table" id="sliderTable"><thead><tr>
+            <th>Imagen</th><th>Título</th><th>Subtítulo</th><th>Orden</th><th>Estado</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+          <div class="modal-overlay" id="slideModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3 id="slideModalTitle">Nueva imagen</h3><button class="modal-close" data-close="slideModal">✕</button></div>
+              <form id="slideForm">
+                <input type="hidden" id="sld-id"/>
+                <div class="form-group"><label>URL de imagen *</label><input type="url" id="sld-imagenUrl" required placeholder="https://..."/></div>
+                <div id="sld-preview-box" style="display:none;margin-bottom:.75rem;text-align:center"><img id="sld-preview-img" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover"/></div>
+                <div class="form-row">
+                  <div class="form-group"><label>Título</label><input type="text" id="sld-titulo" placeholder="Texto principal"/></div>
+                  <div class="form-group"><label>Subtítulo</label><input type="text" id="sld-subtitulo" placeholder="Texto secundario"/></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>Link (opcional)</label><input type="text" id="sld-linkUrl" placeholder="/product.html?id=..."/></div>
+                  <div class="form-group"><label>Orden</label><input type="number" id="sld-orden" value="0" min="0"/></div>
+                </div>
+                <div class="form-group checkbox-group"><label class="checkbox-label"><input type="checkbox" id="sld-activo" checked/><span>Activo</span></label></div>
+                <div class="form-actions"><button type="button" class="btn outline" data-close="slideModal">Cancelar</button><button type="submit" class="btn">Guardar</button></div>
+                <span class="form-msg" id="slideMsg"></span>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── CANJES MOCKA POINTS ─── -->
+        <section class="section" id="sec-canjes">
+          <div class="section-header">
+            <h3>🏆 Gestión de Canjes Mocka Points</h3>
+          </div>
+          <div class="canjes-stats" id="canjesStats" style="display:flex;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap"></div>
+          <div class="table-wrap"><table class="admin-table" id="canjesTable"><thead><tr>
+            <th>Usuario</th><th>Producto</th><th>Puntos</th><th>Estado</th><th>Fecha</th><th>Entregado</th><th>Acciones</th>
+          </tr></thead><tbody></tbody></table></div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

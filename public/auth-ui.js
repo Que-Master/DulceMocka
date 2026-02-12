@@ -28,11 +28,26 @@
             '<span class="user-dropdown-email">' + (data.user.email || '') + '</span>' +
           '</div>' +
           '<hr>' +
+          '<a href="/profile.html" class="user-dropdown-item">👤 Mi perfil</a>' +
+          '<a href="/mis-pedidos.html" class="user-dropdown-item">📦 Mis pedidos</a>' +
           '<a href="/cart.html" class="user-dropdown-item">🛒 Mi carrito</a>' +
           '<button class="user-dropdown-item logout-item" id="logoutBtn">🚪 Cerrar sesión</button>' +
         '</div>';
 
       actions.appendChild(wrap);
+
+      // Check if admin and add admin link
+      try {
+        const adminCheck = await fetch('/api/admin/dashboard');
+        if (adminCheck.ok) {
+          const adminLink = document.createElement('a');
+          adminLink.href = '/admin.html';
+          adminLink.className = 'user-dropdown-item';
+          adminLink.textContent = '⚙️ Panel Admin';
+          const hr = dd.querySelector('hr');
+          hr.insertAdjacentElement('afterend', adminLink);
+        }
+      } catch (e) { /* not admin */ }
 
       // Toggle dropdown
       const btn = document.getElementById('userMenuBtn');

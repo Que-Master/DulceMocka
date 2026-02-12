@@ -5,6 +5,9 @@ const path = require('path');
 const passport = require('./config/passport');
 const productoRoutes = require('./routes/productoRoutes');
 const authRoutes = require('./routes/authRoutes');
+const perfilRoutes = require('./routes/perfilRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const notificacionRoutes = require('./routes/notificacionRoutes');
 
 const app = express();
 
@@ -33,6 +36,9 @@ app.get('/', (req, res) => {
 
 app.use('/api', productoRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/perfil', perfilRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/notificaciones', notificacionRoutes);
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {

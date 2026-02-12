@@ -28,13 +28,15 @@
     <section class="card" style="padding:1rem;margin-bottom:2rem">
       <h3>Resumen</h3>
       <div class="summary-row"><span>Subtotal</span><span id="ordSubtotal">$0</span></div>
-      <div class="summary-row"><span>Envío</span><span id="ordShipping">$0</span></div>
+      <div class="summary-row" id="ordShippingRow"><span>Envío</span><span id="ordShipping">$0</span></div>
+      <div class="summary-row" id="ordDiscountRow" style="display:none"><span>Descuento</span><span id="ordDiscount" style="color:#22c55e;font-weight:700">-$0</span></div>
       <div class="summary-row"><span>Total</span><span id="ordTotal">$0</span></div>
     </section>
   </main>
 
   <footer class="site-footer"><div class="footer-bottom"><div class="container">© 2026 Dulce Shakes. Todos los derechos reservados.</div></div></footer>
   <script src="/auth-ui.js"></script>
+  <script src="/notificaciones.js"></script>
   <script src="/order.js"></script>
 </body>
 </html>

@@ -23,7 +23,8 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     if(!res.ok) return showMsg(data.error || 'Error al iniciar sesión', 'error');
 
     showMsg('Bienvenido ' + (data.user.nombre || ''), 'success');
-    setTimeout(() => { window.location.href = '/'; }, 800);
+    const dest = data.user.rol === 'admin' ? '/admin.html' : '/';
+    setTimeout(() => { window.location.href = dest; }, 800);
   }catch(err){
     showMsg('Error de conexión', 'error');
   }

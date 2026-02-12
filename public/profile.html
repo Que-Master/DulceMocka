@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi Perfil — Dulce Mocka</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/profile.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand"><a class="logo" href="/">Dulce Mocka</a></div>
+      <div class="search-wrap">
+        <input id="search" class="search" placeholder="Buscar productos..." />
+        <button class="search-btn">🔍</button>
+      </div>
+      <div class="actions">
+        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="btn outline" href="/login.html">Iniciar sesión</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container profile-page">
+    <!-- Sidebar / Tabs -->
+    <aside class="profile-sidebar">
+      <div class="profile-avatar-big" id="profileAvatar">?</div>
+      <h2 class="profile-sidebar-name" id="sidebarName">Cargando...</h2>
+      <p class="profile-sidebar-email" id="sidebarEmail"></p>
+      <nav class="profile-tabs">
+        <button class="profile-tab active" data-tab="info">👤 Información</button>
+        <button class="profile-tab" data-tab="addresses">📍 Direcciones</button>
+        <button class="profile-tab" data-tab="coupons">🎟️ Mis Cupones</button>
+        <button class="profile-tab" data-tab="security">🔒 Seguridad</button>
+      </nav>
+    </aside>
+
+    <!-- Content -->
+    <section class="profile-content">
+
+      <!-- ═══ TAB: Información personal ═══ -->
+      <div class="tab-panel active" id="tab-info">
+        <h2>Información personal</h2>
+        <form id="profileForm" class="profile-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-nombre">Nombre completo *</label>
+              <input type="text" id="pf-nombre" required />
+            </div>
+            <div class="form-group">
+              <label for="pf-telefono">Teléfono</label>
+              <input type="tel" id="pf-telefono" placeholder="809-000-0000" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-correo">Correo electrónico</label>
+              <input type="email" id="pf-correo" disabled />
+              <small class="hint">El correo no se puede cambiar</small>
+            </div>
+            <div class="form-group">
+              <label for="pf-fechaNac">Fecha de nacimiento</label>
+              <input type="date" id="pf-fechaNac" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Mocka Points</label>
+              <div class="points-badge" id="pf-points">0 pts</div>
+            </div>
+            <div class="form-group">
+              <label>Miembro desde</label>
+              <div class="member-since" id="pf-member"></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn">Guardar cambios</button>
+            <span class="form-msg" id="profileMsg"></span>
+          </div>
+        </form>
+      </div>
+
+      <!-- ═══ TAB: Direcciones ═══ -->
+      <div class="tab-panel" id="tab-addresses">
+        <div class="tab-header">
+          <h2>Mis Direcciones</h2>
+          <button class="btn" id="btnAddAddress">+ Nueva dirección</button>
+        </div>
+
+        <div class="addresses-list" id="addressesList">
+          <!-- Direcciones cargadas dinámicamente -->
+        </div>
+
+        <!-- Modal / formulario de dirección -->
+        <div class="modal-overlay" id="addressModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h3 id="addressModalTitle">Nueva dirección</h3>
+              <button class="modal-close" id="addressModalClose">✕</button>
+            </div>
+            <form id="addressForm">
+              <input type="hidden" id="addr-id" />
+              <div class="form-group">
+                <label for="addr-calle">Calle / Dirección *</label>
+                <input type="text" id="addr-calle" required placeholder="Ej: Av. 27 de Febrero #123" />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="addr-numero">Número de casa / Apto</label>
+                  <input type="text" id="addr-numero" placeholder="Ej: Casa 5, Apto 2B" />
+                </div>
+                <div class="form-group">
+                  <label for="addr-sector">Sector</label>
+                  <select id="addr-sector">
+                    <option value="">Seleccionar sector...</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="addr-nota">Referencia / Nota</label>
+                <textarea id="addr-nota" rows="2" placeholder="Ej: Frente al parque, portón azul"></textarea>
+              </div>
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="addr-principal" />
+                  <span>Marcar como dirección principal</span>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn outline" id="addressCancelBtn">Cancelar</button>
+                <button type="submit" class="btn">Guardar dirección</button>
+              </div>
+              <span class="form-msg" id="addressMsg"></span>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Mis Cupones ═══ -->
+      <div class="tab-panel" id="tab-coupons">
+        <h2>Mis Cupones</h2>
+
+        <!-- Reclamar cupón -->
+        <div class="coupon-claim-box">
+          <h4>🎁 ¿Tienes un código de cupón?</h4>
+          <form id="claimCouponForm" class="coupon-claim-form">
+            <input type="text" id="couponCodeInput" placeholder="Ej: VERANO2025" maxlength="50" required style="text-transform:uppercase" />
+            <button type="submit" class="btn">Reclamar</button>
+          </form>
+          <span class="form-msg" id="claimMsg"></span>
+        </div>
+
+        <!-- Lista de cupones -->
+        <div class="coupons-grid" id="couponsGrid">
+          <p class="loading-text">Cargando cupones...</p>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Seguridad ═══ -->
+      <div class="tab-panel" id="tab-security">
+        <h2>Seguridad</h2>
+        <form id="passwordForm" class="profile-form">
+          <div class="form-group">
+            <label for="pw-current">Contraseña actual</label>
+            <input type="password" id="pw-current" placeholder="Tu contraseña actual" />
+            <small class="hint" id="pwHint">Si iniciaste sesión con Google y no tienes contraseña, deja este campo vacío</small>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pw-new">Nueva contraseña *</label>
+              <input type="password" id="pw-new" required minlength="6" placeholder="Mínimo 6 caracteres" />
+            </div>
+            <div class="form-group">
+              <label for="pw-confirm">Confirmar contraseña *</label>
+              <input type="password" id="pw-confirm" required minlength="6" placeholder="Repetir contraseña" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn">Cambiar contraseña</button>
+            <span class="form-msg" id="passwordMsg"></span>
+          </div>
+        </form>
+      </div>
+
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-bottom container">
+      <p>© 2026 Dulce Mocka — Todos los derechos reservados</p>
+    </div>
+  </footer>
+
+  <script src="/auth-ui.js"></script>
+  <script src="/notificaciones.js"></script>
+  <script src="/profile.js"></script>
+</body>
+</html>

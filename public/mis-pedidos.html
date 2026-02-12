@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mis Pedidos — Dulce Mocka</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/auth.css">
+  <style>
+    .orders-container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
+    .orders-title { font-size: 1.6rem; font-weight: 800; color: #1e1b4b; margin-bottom: .5rem; }
+    .orders-subtitle { color: #6b7280; font-size: .95rem; margin-bottom: 1.5rem; }
+
+    .orders-tabs { display: flex; gap: .5rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e7eb; }
+    .orders-tab { padding: .65rem 1.25rem; border: none; background: none; font-size: .95rem; font-weight: 600; color: #6b7280; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .2s; }
+    .orders-tab:hover { color: #6b5bff; }
+    .orders-tab.active { color: #6b5bff; border-bottom-color: #6b5bff; }
+    .tab-count { background: #e5e7eb; color: #374151; font-size: .75rem; padding: .1rem .45rem; border-radius: 10px; margin-left: .35rem; font-weight: 700; }
+    .orders-tab.active .tab-count { background: #6b5bff; color: #fff; }
+
+    .order-card { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem; transition: box-shadow .2s; }
+    .order-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+    .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; flex-wrap: wrap; gap: .5rem; }
+    .order-number { font-weight: 800; font-size: 1.05rem; color: #1e1b4b; }
+    .order-date { font-size: .85rem; color: #6b7280; }
+
+    .badge { display: inline-block; padding: .2rem .65rem; border-radius: 20px; font-size: .78rem; font-weight: 700; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .badge-primary { background: #ede9fe; color: #5b21b6; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-default { background: #f3f4f6; color: #374151; }
+
+    .order-items { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .75rem; }
+    .order-item-row { display: flex; justify-content: space-between; align-items: center; font-size: .9rem; padding: .35rem 0; border-bottom: 1px solid #f3f4f6; }
+    .order-item-name { font-weight: 600; color: #374151; }
+    .order-item-qty { color: #6b7280; font-size: .85rem; }
+    .order-item-price { font-weight: 700; color: #3b82f6; }
+    .order-item-notes { font-size: .8rem; color: #9ca3af; margin-top: 2px; }
+
+    .order-footer { display: flex; justify-content: space-between; align-items: center; padding-top: .75rem; border-top: 1.5px solid #e5e7eb; }
+    .order-type { font-size: .85rem; color: #6b7280; }
+    .order-total { font-size: 1.15rem; font-weight: 800; color: #6b5bff; }
+
+    .empty-state { text-align: center; padding: 3rem 1rem; color: #9ca3af; }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: .75rem; }
+    .empty-state p { font-size: 1rem; }
+    .empty-state a { color: #6b5bff; font-weight: 600; text-decoration: none; }
+
+    .loading { text-align: center; padding: 3rem; color: #6b7280; font-size: 1rem; }
+
+    @media (max-width: 600px) {
+      .order-header { flex-direction: column; align-items: flex-start; }
+      .orders-tabs { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <a class="logo" href="/">Dulce Mocka</a>
+      </div>
+
+      <div class="search-wrap">
+        <input id="search" class="search" placeholder="Buscar productos..." />
+        <button class="search-btn">🔍</button>
+      </div>
+
+      <div class="actions">
+        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="btn outline" href="/login.html">Iniciar sesión</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+  <div class="orders-container">
+    <h1 class="orders-title">📦 Mis Pedidos</h1>
+    <p class="orders-subtitle">Historial y seguimiento de tus pedidos</p>
+
+    <div class="orders-tabs" id="ordersTabs">
+      <button class="orders-tab active" data-tab="activos">En proceso <span class="tab-count" id="countActivos">0</span></button>
+      <button class="orders-tab" data-tab="completados">Completados <span class="tab-count" id="countCompletados">0</span></button>
+      <button class="orders-tab" data-tab="todos">Todos <span class="tab-count" id="countTodos">0</span></button>
+    </div>
+
+    <div id="ordersContent">
+      <div class="loading">Cargando pedidos...</div>
+    </div>
+  </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-top">
+      <div class="container footer-grid">
+        <div class="footer-brand">
+          <h4>Dulce Shakes</h4>
+          <p>Tu tienda de batidos y bebidas personalizadas</p>
+        </div>
+
+        <div class="footer-links">
+          <h4>Enlaces</h4>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/#productos">Productos</a></li>
+            <li><a href="/admin">Admin</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-contact">
+          <h4>Contacto</h4>
+          <p><a href="https://wa.me/56938993211" target="_blank" rel="noopener">📞 WhatsApp: +56 9 3899 3211</a></p>
+          <p><a href="mailto:tquesillos@gmail.com">✉ tquesillos@gmail.com</a></p>
+          <p><a href="https://instagram.com/dulce_shakesmocka" target="_blank" rel="noopener">📷 @dulce_shakesmocka</a></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="container">© 2026 Dulce Shakes. Todos los derechos reservados.</div>
+    </div>
+
+    <a class="whatsapp-fab" href="https://wa.me/56938993211" target="_blank" rel="noopener">💬</a>
+  </footer>
+
+  <script src="/auth-ui.js"></script>
+  <script src="/notificaciones.js"></script>
+  <script src="/mis-pedidos.js"></script>
+</body>
+</html>

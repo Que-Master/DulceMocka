@@ -26,10 +26,18 @@
   </header>
 
   <main>
-    <section class="hero container-hero">
-      <div class="hero-box container">
+    <section class="hero-slider container-hero" id="heroSlider">
+      <!-- fallback static hero (replaced by JS if slides exist) -->
+      <div class="hero-box container" id="heroFallback">
         <h2>Dulce Mocka <span class="cup">🥤</span></h2>
         <p>Los mejores batidos y bebidas personalizadas de la ciudad</p>
+      </div>
+      <!-- dynamic slider -->
+      <div class="slider-container container" id="sliderContainer" style="display:none">
+        <div class="slider-track" id="sliderTrack"></div>
+        <button class="slider-arrow slider-prev" id="sliderPrev">❮</button>
+        <button class="slider-arrow slider-next" id="sliderNext">❯</button>
+        <div class="slider-dots" id="sliderDots"></div>
       </div>
     </section>
 
@@ -38,6 +46,21 @@
       <div class="categories" id="categories"></div>
       <div class="grid" id="productsGrid">
         <!-- Productos cargados dinámicamente -->
+      </div>
+    </section>
+
+    <!-- ─── MOCKA POINTS ─── -->
+    <section id="mockapoints" class="mockapoints-section container" style="display:none">
+      <div class="mockapoints-header">
+        <h3>🏆 Mocka Points</h3>
+        <div class="mockapoints-balance" id="mpBalance" style="display:none">
+          Tu saldo: <strong id="mpBalanceValue">0</strong> puntos
+        </div>
+      </div>
+      <p class="mockapoints-desc">Canjea tus Mocka Points por productos exclusivos. Ganas 50 puntos por cada $5.000 que gastes.</p>
+      <div class="grid" id="mpProductsGrid"></div>
+      <div id="mpLoginMsg" class="mockapoints-login" style="display:none">
+        <a href="/login.html">Inicia sesión</a> para ver tu saldo y canjear productos.
       </div>
     </section>
 
@@ -80,6 +103,7 @@
     <a class="whatsapp-fab" href="https://wa.me/56938993211" target="_blank" rel="noopener">💬</a>
   </footer>
   <script src="/auth-ui.js"></script>
+  <script src="/notificaciones.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

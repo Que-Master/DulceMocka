@@ -31,7 +31,11 @@ router.post('/login', (req, res) => {
 
       req.login(user, (loginErr) => {
         if (loginErr) return res.status(500).json({ error: 'Error al iniciar sesión' });
-        res.json({ ok: true, user: { id: user.id, nombre: user.nombre, email: user.correo } });
+        // Check if admin
+        db.query("SELECT r.nombre AS rol FROM rol r WHERE r.id = ?", [user.rolId], (errR, rowsR) => {
+          const rol = (rowsR && rowsR[0]) ? rowsR[0].rol : null;
+          res.json({ ok: true, user: { id: user.id, nombre: user.nombre, email: user.correo, rol } });
+        });
       });
     });
   });
@@ -70,7 +74,11 @@ router.post('/register', (req, res) => {
 /* ── Current user ── */
 router.get('/me', (req, res) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
-    return res.json({ user: { id: req.user.id, nombre: req.user.nombre, email: req.user.correo || req.user.email } });
+    db.query("SELECT r.nombre AS rol FROM rol r WHERE r.id = ?", [req.user.rolId], (errR, rowsR) => {
+      const rol = (rowsR && rowsR[0]) ? rowsR[0].rol : null;
+      res.json({ user: { id: req.user.id, nombre: req.user.nombre, email: req.user.correo || req.user.email, rol } });
+    });
+    return;
   }
   res.json({ user: null });
 });
