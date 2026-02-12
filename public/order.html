@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Detalle del pedido — Dulce Mocka</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand"><a class="logo" href="/">Dulce Mocka</a></div>
+      <div class="search-wrap"><input id="search" class="search" placeholder="Buscar productos..." /><button class="search-btn">🔍</button></div>
+      <div class="actions"><a class="icon" href="/cart.html">🛒 Carrito</a><a class="btn outline" href="/login.html">Iniciar sesión</a></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <nav class="breadcrumb"><a href="/">Home</a> / Detalle del pedido</nav>
+    <h1>¡Gracias por tu compra!</h1>
+    <p id="msg" style="margin-bottom:1rem;color:#666">Tu pedido ha sido recibido correctamente.</p>
+
+    <section id="orderInfo" class="card" style="padding:1rem;margin-bottom:1rem"></section>
+    <section id="clientInfo" class="card" style="padding:1rem;margin-bottom:1rem"></section>
+    <section id="deliveryInfo" class="card" style="padding:1rem;margin-bottom:1rem"></section>
+    <section id="itemsInfo" class="card" style="padding:1rem;margin-bottom:1rem"></section>
+
+    <section class="card" style="padding:1rem;margin-bottom:2rem">
+      <h3>Resumen</h3>
+      <div class="summary-row"><span>Subtotal</span><span id="ordSubtotal">$0</span></div>
+      <div class="summary-row"><span>Envío</span><span id="ordShipping">$0</span></div>
+      <div class="summary-row"><span>Total</span><span id="ordTotal">$0</span></div>
+    </section>
+  </main>
+
+  <footer class="site-footer"><div class="footer-bottom"><div class="container">© 2026 Dulce Shakes. Todos los derechos reservados.</div></div></footer>
+  <script src="/auth-ui.js"></script>
+  <script src="/order.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi Carrito — Dulce Mocka</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <a class="logo" href="/">Dulce Mocka</a>
+      </div>
+      <div class="search-wrap">
+        <input id="search" class="search" placeholder="Buscar productos..." />
+        <button class="search-btn">🔍</button>
+      </div>
+      <div class="actions">
+        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="btn outline" href="/login.html">Iniciar sesión</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <nav class="breadcrumb">Home / Tu Carrito</nav>
+    <h1>Mi Carrito</h1>
+
+    <div class="cart-grid">
+      <div class="cart-list card">
+        <table class="cart-table">
+          <thead>
+            <tr><th>Producto</th><th>Precio</th><th>Cantidad</th><th>Total</th><th></th></tr>
+          </thead>
+          <tbody id="cartBody">
+            <!-- rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <aside class="cart-summary card">
+        <div class="summary-row"><span>Subtotal:</span><span id="subtotal">$0</span></div>
+        <div class="summary-row"><span>Envío:</span><span id="shipping">Por definir</span></div>
+        <div class="summary-row total-row"><span>Total:</span><span id="total">$0</span></div>
+        <button id="checkoutBtn" class="btn-add-cart">Ir a Pedir</button>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-bottom">
+      <div class="container">© 2026 Dulce Shakes. Todos los derechos reservados.</div>
+    </div>
+  </footer>
+
+  <script src="/auth-ui.js"></script>
+  <script src="/cart.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crear cuenta — Dulce Mocka</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/auth.css">
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <!-- LEFT: form -->
+    <div class="auth-form-panel">
+      <p class="auth-label">BIENVENIDO</p>
+      <h1>Crear cuenta</h1>
+      <p class="auth-hint">Registrate con tus datos para comenzar.</p>
+
+      <button id="googleBtn" class="btn-google">
+        <img src="https://developers.google.com/identity/images/g-logo.png" alt="G" width="20" height="20"/>
+        Registrarse con Google
+      </button>
+
+      <div class="auth-divider"><span>o</span></div>
+
+      <form id="registerForm">
+        <label class="auth-field-label">Nombre completo</label>
+        <input id="nombre" type="text" class="auth-input" placeholder="Juan Pérez" required />
+
+        <label class="auth-field-label">Correo</label>
+        <input id="email" type="email" class="auth-input" placeholder="tu@email.com" required />
+
+        <label class="auth-field-label">Telefono</label>
+        <input id="telefono" type="tel" class="auth-input" placeholder="+56 9 xxxx xxxx" />
+
+        <label class="auth-field-label">Contrasena</label>
+        <input id="password" type="password" class="auth-input" placeholder="Minimo 6 caracteres" required minlength="6" />
+
+        <button type="submit" class="btn-auth">Crear cuenta</button>
+      </form>
+
+      <div id="authMsg" class="auth-msg" style="display:none"></div>
+
+      <p class="auth-switch">Ya tienes cuenta? <a href="/login.html">Iniciar sesion</a></p>
+    </div>
+
+    <!-- RIGHT: promo -->
+    <div class="auth-promo-panel">
+      <h2>Tu pedido, tu estilo</h2>
+      <p>Crea tu cuenta para personalizar bebidas, guardar direcciones y revisar el estado de tus pedidos.</p>
+    </div>
+  </div>
+
+  <script src="/register.js"></script>
+</body>
+</html>

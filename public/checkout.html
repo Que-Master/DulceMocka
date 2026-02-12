@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Finalizar compra — Dulce Mocka</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+          <a class="logo" href="/">Dulce Mocka</a>
+        </div>
+      <div class="search-wrap">
+        <input id="search" class="search" placeholder="Buscar productos..." />
+        <button class="search-btn">🔍</button>
+      </div>
+      <div class="actions">
+        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="btn outline" href="/login.html">Iniciar sesión</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <nav class="breadcrumb"><a href="/">Home</a> / Finalizar compra</nav>
+    <h1>Finalizar compra</h1>
+
+    <div class="checkout-grid">
+      <section class="order-form card">
+        <h2>Tipo de entrega</h2>
+        <form id="checkoutForm">
+          <div class="form-group">
+            <label><input type="radio" name="delivery" value="retiro" checked /> Retiro en tienda</label>
+            <label style="margin-left:1rem"><input type="radio" name="delivery" value="domicilio" /> Despacho a domicilio</label>
+          </div>
+
+          <div id="deliveryFields" style="display:none;margin-top:1rem">
+            <div class="form-group">
+              <label for="calle">Calle</label>
+              <input id="calle" name="calle" class="notes-input" placeholder="Nombre de la calle" />
+            </div>
+            <div class="form-group">
+              <label for="numero">Número / Casa</label>
+              <input id="numero" name="numero" class="notes-input" placeholder="Número" />
+            </div>
+            <div class="form-group">
+              <label for="sector">Sector</label>
+              <select id="sector" name="sector" class="notes-input"><option value="">Cargando sectores...</option></select>
+            </div>
+            <div class="form-group">
+              <label for="direccionNotas">Notas de dirección</label>
+              <input id="direccionNotas" name="direccionNotas" class="notes-input" placeholder="Piso, referencia, entre calles..." />
+            </div>
+          </div>
+
+          <h3>Tus datos</h3>
+          <div class="form-group">
+            <label for="nombre">Nombre completo *</label>
+            <input id="nombre" name="nombre" class="notes-input" placeholder="Ej: Juan Pérez" required />
+          </div>
+          <div class="form-group">
+            <label for="email">Correo electrónico *</label>
+            <input id="email" name="email" class="notes-input" placeholder="ejemplo@correo.com" required />
+          </div>
+          <div class="form-group">
+            <label for="telefono">Teléfono *</label>
+            <input id="telefono" name="telefono" class="notes-input" placeholder="+56 9 xxxx xxxx" required />
+          </div>
+
+          <button id="confirmBtn" class="btn-add-cart" type="submit">Confirmar pedido</button>
+          <div id="checkoutMsg" class="success-message" style="display:none;margin-top:12px"></div>
+        </form>
+      </section>
+
+      <aside class="order-summary card">
+        <h3>Resumen del pedido</h3>
+        <div id="summaryList"></div>
+        <div class="summary-row"><strong>Subtotal</strong><span id="coSubtotal">$0</span></div>
+        <div class="summary-row"><strong>Total</strong><span id="coTotal">$0</span></div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-bottom">
+      <div class="container">© 2026 Dulce Shakes. Todos los derechos reservados.</div>
+    </div>
+  </footer>
+
+  <script src="/auth-ui.js"></script>
+  <script src="/checkout.js"></script>
+</body>
+</html>

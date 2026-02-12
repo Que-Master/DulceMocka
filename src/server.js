@@ -1,27 +1,27 @@
 // src/server.js
 const express = require('express');
-const app = express();
+const session = require('express-session');
 const path = require('path');
-const mysql = require('mysql2');
+const passport = require('./config/passport');
 const productoRoutes = require('./routes/productoRoutes');
+const authRoutes = require('./routes/authRoutes');
 
-// Configura la conexión a la base de datos
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'dulce_mocka' // Asegúrate de que este nombre coincida con tu base de datos
-});
-
-db.connect(err => {
-  if (err) {
-    console.error('Error al conectar con la base de datos: ' + err.stack);
-    return;
-  }
-  console.log('Conectado a la base de datos MySQL');
-});
+const app = express();
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Session
+app.use(session({
+  secret: process.env.NEXTAUTH_SECRET || 'algo_aleatorio_aqui',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+}));
+
+// Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Servir archivos estáticos desde la carpeta "public"
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -31,7 +31,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-app.use('/api', productoRoutes); // Usar rutas de productos
+app.use('/api', productoRoutes);
+app.use('/api/auth', authRoutes);
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {

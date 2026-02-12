@@ -1,0 +1,87 @@
+/* auth.css — Login & Register pages */
+.auth-body{
+  margin:0;padding:0;
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#fff7e6 0%,#e8e0f7 100%);
+  font-family:Inter,system-ui,Arial,sans-serif;
+}
+.auth-container{
+  display:grid;grid-template-columns:1fr 1fr;
+  max-width:900px;width:95%;
+  border-radius:16px;overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,0,0,.1);
+}
+
+/* LEFT panel */
+.auth-form-panel{
+  background:#fff;padding:2.5rem 2.5rem 2rem;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.auth-label{
+  color:#ff9f1c;font-weight:800;font-size:.82rem;letter-spacing:2px;margin-bottom:.25rem;
+}
+.auth-form-panel h1{
+  font-size:1.6rem;color:#1a1a2e;margin:0 0 .35rem;
+}
+.auth-hint{color:#888;font-size:.9rem;margin-bottom:1.5rem}
+
+/* Google button */
+.btn-google{
+  display:flex;align-items:center;justify-content:center;gap:.6rem;
+  width:100%;padding:.7rem;border:1px solid #e0e0e0;border-radius:8px;
+  background:#fff;font-weight:600;cursor:pointer;font-size:.95rem;color:#333;
+  transition:box-shadow .15s;
+}
+.btn-google:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+
+/* divider */
+.auth-divider{
+  display:flex;align-items:center;gap:.75rem;margin:1.2rem 0;color:#ccc;font-size:.85rem;
+}
+.auth-divider::before,.auth-divider::after{
+  content:'';flex:1;height:1px;background:#e4e4e4;
+}
+
+/* fields */
+.auth-field-label{
+  display:block;font-weight:600;color:#1a1a2e;margin:0 0 .3rem;font-size:.88rem;
+}
+.auth-input{
+  width:100%;padding:.65rem .8rem;border:1px solid #e0e0e0;border-radius:8px;
+  margin-bottom:.9rem;font-size:.95rem;outline:none;transition:border .2s;
+  box-sizing:border-box;
+}
+.auth-input:focus{border-color:#6b5bff}
+
+/* submit */
+.btn-auth{
+  display:block;width:100%;padding:.8rem;
+  background:#1a1a2e;color:#fff;border:none;border-radius:8px;
+  font-weight:700;font-size:1rem;cursor:pointer;margin-top:.5rem;
+  transition:opacity .15s;
+}
+.btn-auth:hover{opacity:.9}
+
+/* message */
+.auth-msg{margin-top:.8rem;padding:.6rem;border-radius:6px;font-size:.9rem;text-align:center}
+.auth-msg.error{background:#fdecea;color:#d32f2f}
+.auth-msg.success{background:#e8f5e9;color:#2e7d32}
+
+/* switch link */
+.auth-switch{margin-top:1.2rem;font-size:.9rem;color:#888}
+.auth-switch a{color:#ff9f1c;font-weight:600;text-decoration:none}
+.auth-switch a:hover{text-decoration:underline}
+
+/* RIGHT panel (promo card) */
+.auth-promo-panel{
+  background:#1a1a2e;color:#fff;padding:2.5rem;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.auth-promo-panel h2{font-size:1.4rem;margin:0 0 .6rem}
+.auth-promo-panel p{color:#aab;line-height:1.55;font-size:.95rem}
+
+@media(max-width:700px){
+  .auth-container{grid-template-columns:1fr}
+  .auth-promo-panel{display:none}
+}

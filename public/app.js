@@ -96,6 +96,7 @@ function renderProductos() {
     const btn = document.createElement('button');
     btn.className = 'vermas';
     btn.textContent = 'Ver más';
+    btn.onclick = () => { window.location = `/product.html?id=${p.id}`; };
 
     footer.appendChild(price);
     footer.appendChild(btn);

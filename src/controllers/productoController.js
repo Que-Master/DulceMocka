@@ -12,6 +12,29 @@ const obtenerProductos = (req, res) => {
   });
 };
 
+const obtenerProducto = (req, res) => {
+  const id = req.params.id;
+  productoModel.obtenerProductoPorId(id, (err, producto) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener producto' });
+    if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.status(200).json(producto);
+  });
+};
+
+const obtenerIngredientes = (req, res) => {
+  productoModel.obtenerIngredientes((err, ingredientes) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener ingredientes' });
+    res.status(200).json(ingredientes);
+  });
+};
+
+const obtenerSectores = (req, res) => {
+  productoModel.obtenerSectores((err, sectores) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener sectores' });
+    res.status(200).json(sectores);
+  });
+};
+
 const obtenerCategorias = (req, res) => {
   productoModel.obtenerCategorias((err, categorias) => {
     if (err) {
@@ -22,4 +45,4 @@ const obtenerCategorias = (req, res) => {
   });
 };
 
-module.exports = { obtenerProductos, obtenerCategorias };
+module.exports = { obtenerProductos, obtenerCategorias, obtenerProducto, obtenerIngredientes, obtenerSectores };

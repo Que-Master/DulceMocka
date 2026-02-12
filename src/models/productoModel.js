@@ -3,62 +3,93 @@ const db = require('./db');
 
 // Obtener todos los productos o filtrar por categoría
 const obtenerProductos = (categoriaId, callback) => {
-  const attempts = [];
+  let sql, params;
 
   if (categoriaId) {
-    // Intento principal: tablas en minúscula y columna camelCase (ej. producto.categoriaId)
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM producto p LEFT JOIN categoria c ON p.categoriaId = c.id WHERE p.categoriaId = ?`, params: [categoriaId] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM Producto p LEFT JOIN Categoria c ON p.categoriaId = c.id WHERE p.categoriaId = ?`, params: [categoriaId] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM Producto p LEFT JOIN Categoria c ON p.categoria_id = c.id WHERE p.categoria_id = ?`, params: [categoriaId] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM productos p LEFT JOIN categorias c ON p.categoria_id = c.id WHERE p.categoria_id = ?`, params: [categoriaId] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM productos p LEFT JOIN categorias c ON p.categoria = c.id WHERE p.categoria = ?`, params: [categoriaId] });
+    sql = `SELECT p.*, c.nombre AS categoria_nombre FROM producto p LEFT JOIN categoria c ON p.categoriaId = c.id WHERE p.categoriaId = ? AND p.activo = 1`;
+    params = [categoriaId];
   } else {
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM producto p LEFT JOIN categoria c ON p.categoriaId = c.id`, params: [] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM Producto p LEFT JOIN Categoria c ON p.categoriaId = c.id`, params: [] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM Producto p LEFT JOIN Categoria c ON p.categoria_id = c.id`, params: [] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM productos p LEFT JOIN categorias c ON p.categoria_id = c.id`, params: [] });
-    attempts.push({ sql: `SELECT p.*, c.nombre AS categoria_nombre FROM productos p LEFT JOIN categorias c ON p.categoria = c.id`, params: [] });
+    sql = `SELECT p.*, c.nombre AS categoria_nombre FROM producto p LEFT JOIN categoria c ON p.categoriaId = c.id WHERE p.activo = 1`;
+    params = [];
   }
 
-  // Ejecutar intentos secuencialmente hasta obtener resultados o agotar opciones
-  const tryAttempt = (i) => {
-    if (i >= attempts.length) return callback(null, []);
-    const a = attempts[i];
-    db.query(a.sql, a.params, (err, results) => {
-      if (err) {
-        console.warn('productoModel.obtenerProductos: intento', i, 'falló:', err.message);
-        return tryAttempt(i + 1);
-      }
-      // Si la consulta fue exitosa, devolver resultados (aunque vacíos)
-      return callback(null, results);
-    });
-  };
-
-  tryAttempt(0);
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('productoModel.obtenerProductos error:', err.message);
+      return callback(err, []);
+    }
+    return callback(null, results);
+  });
 };
 
-// Obtener categorías que tengan al menos un producto (con total)
+// Obtener categorías activas
 const obtenerCategorias = (callback) => {
-  const attempts = [
-    `SELECT c.id, c.nombre, COUNT(p.id) AS total FROM categoria c JOIN producto p ON p.categoriaId = c.id GROUP BY c.id, c.nombre HAVING COUNT(p.id) > 0 ORDER BY c.nombre`,
-    `SELECT c.id, c.nombre, COUNT(p.id) AS total FROM Categoria c JOIN Producto p ON p.categoriaId = c.id GROUP BY c.id, c.nombre HAVING COUNT(p.id) > 0 ORDER BY c.nombre`,
-    `SELECT c.id, c.nombre, COUNT(p.id) AS total FROM Categoria c JOIN Producto p ON p.categoria_id = c.id GROUP BY c.id, c.nombre HAVING COUNT(p.id) > 0 ORDER BY c.nombre`,
-    `SELECT c.id, c.nombre, COUNT(p.id) AS total FROM categorias c JOIN productos p ON p.categoria_id = c.id GROUP BY c.id, c.nombre HAVING COUNT(p.id) > 0 ORDER BY c.nombre`,
-    `SELECT c.id, c.nombre, COUNT(p.id) AS total FROM categorias c JOIN productos p ON p.categoria = c.id GROUP BY c.id, c.nombre HAVING COUNT(p.id) > 0 ORDER BY c.nombre`
-  ];
-
-  const tryAttempt = (i) => {
-    if (i >= attempts.length) return callback(null, []);
-    db.query(attempts[i], (err, results) => {
-      if (err) {
-        console.warn('productoModel.obtenerCategorias: intento', i, 'falló:', err.message);
-        return tryAttempt(i + 1);
-      }
-      return callback(null, results);
-    });
-  };
-
-  tryAttempt(0);
+  const sql = `SELECT id, nombre, descripcion FROM categoria WHERE activo = 1 ORDER BY nombre`;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('productoModel.obtenerCategorias error:', err.message);
+      return callback(err, []);
+    }
+    return callback(null, results);
+  });
 };
 
-module.exports = { obtenerProductos, obtenerCategorias };
+// Obtener un producto por ID con sus ingredientes
+const obtenerProductoPorId = (id, callback) => {
+  const sqlP = `SELECT p.*, c.nombre AS categoria_nombre
+    FROM producto p
+    LEFT JOIN categoria c ON p.categoriaId = c.id
+    WHERE p.id = ? AND p.activo = 1`;
+
+  db.query(sqlP, [id], (err, rows) => {
+    if (err) return callback(err);
+    if (!rows || rows.length === 0) return callback(null, null);
+
+    const producto = rows[0];
+
+    const sqlI = `SELECT i.id, i.nombre, i.descripcion,
+      IFNULL(pi.incluidoPorDefecto, 0) AS incluidoPorDefecto,
+      IFNULL(pi.sePuedeQuitar, 1) AS sePuedeQuitar
+      FROM productoingrediente pi
+      JOIN ingrediente i ON pi.ingredienteId = i.id
+      WHERE pi.productoId = ?`;
+
+    db.query(sqlI, [id], (err2, ingredientes) => {
+      if (err2) {
+        console.warn('ingredientes query falló:', err2.message);
+        producto.ingredientes = [];
+      } else {
+        producto.ingredientes = ingredientes || [];
+      }
+      return callback(null, producto);
+    });
+  });
+};
+
+module.exports = { obtenerProductos, obtenerCategorias, obtenerProductoPorId };
+
+// Obtener todos los ingredientes activos
+const obtenerIngredientes = (callback) => {
+  const sql = `SELECT id, nombre, descripcion FROM ingrediente WHERE activo = 1 ORDER BY nombre`;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('productoModel.obtenerIngredientes error:', err.message);
+      return callback(err, []);
+    }
+    return callback(null, results);
+  });
+};
+
+// Obtener sectores activos
+const obtenerSectores = (callback) => {
+  const sql = `SELECT id, nombre, precioEnvio FROM sector WHERE activo = 1 ORDER BY nombre`;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('productoModel.obtenerSectores error:', err.message);
+      return callback(err, []);
+    }
+    return callback(null, results);
+  });
+};
+
+module.exports = { obtenerProductos, obtenerCategorias, obtenerProductoPorId, obtenerIngredientes, obtenerSectores };

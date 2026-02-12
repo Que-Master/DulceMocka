@@ -10,7 +10,7 @@
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
-        <div class="logo">Dulce Mocka</div>
+        <a class="logo" href="/">Dulce Mocka</a>
       </div>
 
       <div class="search-wrap">
@@ -19,8 +19,8 @@
       </div>
 
       <div class="actions">
-        <button class="icon">🛒 Carrito</button>
-        <button class="btn outline">Iniciar sesión</button>
+        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="btn outline" href="/login.html">Iniciar sesión</a>
       </div>
     </div>
   </header>
@@ -28,13 +28,13 @@
   <main>
     <section class="hero container-hero">
       <div class="hero-box container">
-        <h2>Dulce Shakes <span class="cup">🥤</span></h2>
+        <h2>Dulce Mocka <span class="cup">🥤</span></h2>
         <p>Los mejores batidos y bebidas personalizadas de la ciudad</p>
       </div>
     </section>
 
     <section id="productos" class="productos container">
-      <h3>Productos Destacados</h3>
+      <h3>Nuestras Categorías</h3>
       <div class="categories" id="categories"></div>
       <div class="grid" id="productsGrid">
         <!-- Productos cargados dinámicamente -->
@@ -48,8 +48,38 @@
   </main>
 
   <footer class="site-footer">
-    <div class="container">© 2026 Dulce Mocka — Todos los derechos reservados</div>
+    <div class="footer-top">
+      <div class="container footer-grid">
+        <div class="footer-brand">
+          <h4>Dulce Shakes</h4>
+          <p>Tu tienda de batidos y bebidas personalizadas</p>
+        </div>
+
+        <div class="footer-links">
+          <h4>Enlaces</h4>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/#productos">Productos</a></li>
+            <li><a href="/admin">Admin</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-contact">
+          <h4>Contacto</h4>
+          <p><a href="https://wa.me/56938993211" target="_blank" rel="noopener">📞 WhatsApp: +56 9 3899 3211</a></p>
+          <p><a href="mailto:tquesillos@gmail.com">✉ tquesillos@gmail.com</a></p>
+          <p><a href="https://instagram.com/dulce_shakesmocka" target="_blank" rel="noopener">📷 @dulce_shakesmocka</a></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="container">© 2026 Dulce Shakes. Todos los derechos reservados.</div>
+    </div>
+
+    <a class="whatsapp-fab" href="https://wa.me/56938993211" target="_blank" rel="noopener">💬</a>
   </footer>
+  <script src="/auth-ui.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
