@@ -320,7 +320,17 @@ document.getElementById('checkoutForm').addEventListener('submit', async functio
       })
     });
     const data = await res.json();
-    if (!res.ok) { msg.textContent = data.error || 'Error al crear pedido'; msg.style.color = '#ef4444'; return; }
+    if (!res.ok) { 
+      if (data.requiresAge) {
+        msg.textContent = '⚠️ ' + data.error;
+        msg.style.color = '#ef4444';
+        alert('⚠️ Restricción de edad\\n\\n' + data.error + '\\n\\nDebes actualizar tu fecha de nacimiento en tu perfil si crees que hay un error.');
+      } else {
+        msg.textContent = data.error || 'Error al crear pedido'; 
+        msg.style.color = '#ef4444'; 
+      }
+      return; 
+    }
 
     // Pedido creado exitosamente — limpiar carrito y cupón
     localStorage.removeItem('cart');

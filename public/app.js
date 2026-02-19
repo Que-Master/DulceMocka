@@ -300,6 +300,8 @@ async function redeemProduct(prod, btn) {
         if (confirm(data.error + '\n\n¿Deseas completar tu perfil?')) {
           window.location.href = '/profile.html';
         }
+      } else if (data.requiresAge) {
+        alert('⚠️ ' + data.error + '\n\nDebes ser mayor de 18 años para realizar compras o canjes en Dulce Mocka.');
       } else {
         alert(data.error || 'Error al canjear');
       }

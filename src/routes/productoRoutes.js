@@ -94,6 +94,24 @@ router.post('/mockapoints/canjear', async (req, res) => {
       });
     }
 
+    // Verificar edad (mayor de 18)
+    const usuarios = await q('SELECT fechaNacimiento FROM usuario WHERE id = ?', [req.user.id]);
+    if (usuarios.length > 0 && usuarios[0].fechaNacimiento) {
+      const birthDate = new Date(usuarios[0].fechaNacimiento);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        return res.status(403).json({ 
+          error: 'Debes ser mayor de 18 años para canjear productos', 
+          requiresAge: true 
+        });
+      }
+    }
+
     const { productoId } = req.body;
     if (!productoId) return res.status(400).json({ error: 'productoId es requerido' });
 

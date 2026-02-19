@@ -31,6 +31,26 @@ const PedidoController = {
         return res.status(400).json({ error: 'El pedido debe tener al menos un item' });
       }
 
+      // Verificar edad si el usuario está autenticado
+      if (req.user && req.user.id) {
+        const usuarios = await q('SELECT fechaNacimiento FROM usuario WHERE id = ?', [req.user.id]);
+        if (usuarios.length > 0 && usuarios[0].fechaNacimiento) {
+          const birthDate = new Date(usuarios[0].fechaNacimiento);
+          const today = new Date();
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const m = today.getMonth() - birthDate.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+          if (age < 18) {
+            return res.status(403).json({ 
+              error: 'Debes ser mayor de 18 años para realizar compras en Dulce Mocka', 
+              requiresAge: true 
+            });
+          }
+        }
+      }
+
       const pedidoId = uuidv4();
       const numeroPedido = 'DSM-' + (Math.floor(Math.random() * 900000) + 100000);
 

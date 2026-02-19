@@ -34,6 +34,20 @@ const PerfilController = {
 
     const fechaNac = fechaNacimiento || null;
 
+    // Validar que sea mayor de 18 años si proporciona fecha
+    if (fechaNac) {
+      const birthDate = new Date(fechaNac);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        return res.status(400).json({ error: 'Debes ser mayor de 18 años para registrarte en Dulce Mocka' });
+      }
+    }
+
     db.query(
       'UPDATE usuario SET nombre = ?, telefono = ?, fechaNacimiento = ? WHERE id = ?',
       [nombre.trim(), telefono || null, fechaNac, req.user.id],
