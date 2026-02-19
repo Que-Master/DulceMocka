@@ -191,7 +191,14 @@ document.getElementById('applyCouponBtn').addEventListener('click', async () => 
       msg.textContent = '✓ Cupón aplicado: -' + fmt(currentDiscount);
       msg.className = 'coupon-msg success';
     } else {
-      msg.textContent = data.error || 'Cupón no válido';
+      // Handle special cases
+      if (data.requiresLogin) {
+        msg.innerHTML = data.error + ' <a href="/login.html" style="color:#3498db;text-decoration:underline">Iniciar sesión</a>';
+      } else if (data.requiresProfile) {
+        msg.innerHTML = data.error + ' <a href="/profile.html" style="color:#3498db;text-decoration:underline">Ir a mi perfil</a>';
+      } else {
+        msg.textContent = data.error || 'Cupón no válido';
+      }
       msg.className = 'coupon-msg error';
     }
   } catch (e) {

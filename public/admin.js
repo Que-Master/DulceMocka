@@ -271,10 +271,10 @@
   async function loadProducts() {
     await loadCategorias();
     await loadAllIngredientes();
-    // Fill category select
+    // Fill category select (only active categories)
     const sel = document.getElementById('prod-categoria');
     sel.innerHTML = '<option value="">Sin categoría</option>';
-    categorias.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + esc(c.nombre) + '</option>'; });
+    categorias.filter(c => c.activo).forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + esc(c.nombre) + '</option>'; });
 
     const data = await api('/api/admin/productos');
     const tbody = document.querySelector('#productsTable tbody');
@@ -402,8 +402,17 @@
       tr.innerHTML =
         '<td>' + esc(c.nombre) + '</td>' +
         '<td>' + esc(c.descripcion || '—') + '</td>' +
-        '<td><button class="btn small" data-edit-cat="' + c.id + '">✏️</button></td>';
+        '<td>' + (c.activo ? badge('Activa', 'success') : badge('Inactiva', 'danger')) + '</td>' +
+        '<td><button class="btn small" data-toggle-cat="' + c.id + '" data-activo="' + (c.activo ? '1' : '0') + '">' + (c.activo ? '🔴' : '🟢') + '</button> ' +
+        '<button class="btn small" data-edit-cat="' + c.id + '">✏️</button></td>';
       tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('[data-toggle-cat]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const newActivo = btn.dataset.activo === '0';
+        const data = await api('/api/admin/categorias/' + btn.dataset.toggleCat + '/toggle', 'PATCH', { activo: newActivo });
+        if (data.ok) loadCategories();
+      });
     });
     tbody.querySelectorAll('[data-edit-cat]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -418,6 +427,7 @@
     document.getElementById('cat-id').value = c ? c.id : '';
     document.getElementById('cat-nombre').value = c ? c.nombre : '';
     document.getElementById('cat-descripcion').value = c ? (c.descripcion || '') : '';
+    document.getElementById('cat-activo').checked = c ? !!c.activo : true;
     document.getElementById('categoryMsg').textContent = '';
     document.getElementById('categoryModal').classList.add('open');
   }
@@ -426,7 +436,7 @@
   document.getElementById('categoryForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('cat-id').value;
-    const body = { nombre: document.getElementById('cat-nombre').value, descripcion: document.getElementById('cat-descripcion').value, activo: true };
+    const body = { nombre: document.getElementById('cat-nombre').value, descripcion: document.getElementById('cat-descripcion').value, activo: document.getElementById('cat-activo').checked };
     const data = await api('/api/admin/categorias' + (id ? '/' + id : ''), id ? 'PUT' : 'POST', body);
     if (data.ok || data.id) { document.getElementById('categoryModal').classList.remove('open'); loadCategories(); loadCategorias(); }
     else { document.getElementById('categoryMsg').textContent = data.error; document.getElementById('categoryMsg').className = 'form-msg error'; }
@@ -459,8 +469,16 @@
         '<td>' + badge(u.rol || 'Sin rol', u.rol === 'admin' ? 'primary' : 'default') + '</td>' +
         '<td>' + (u.mockaPoints || 0) + '</td>' +
         '<td>' + (u.activo ? badge('Activo', 'success') : badge('Inactivo', 'danger')) + '</td>' +
-        '<td><button class="btn small" data-edit-user="' + u.id + '">✏️</button></td>';
+        '<td><button class="btn small" data-toggle-user="' + u.id + '" data-activo="' + (u.activo ? '1' : '0') + '">' + (u.activo ? '🔴' : '🟢') + '</button> ' +
+        '<button class="btn small" data-edit-user="' + u.id + '">✏️</button></td>';
       tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('[data-toggle-user]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const newActivo = btn.dataset.activo === '0';
+        const data = await api('/api/admin/usuarios/' + btn.dataset.toggleUser + '/toggle', 'PATCH', { activo: newActivo });
+        if (data.ok) loadUsers();
+      });
     });
     tbody.querySelectorAll('[data-edit-user]').forEach(btn => {
       btn.addEventListener('click', () => {

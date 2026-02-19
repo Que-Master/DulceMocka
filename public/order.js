@@ -20,14 +20,20 @@ function renderOrder(data){
 
   const order = data.pedido;
   const items = data.items || [];
+  const isMockaPointsRedemption = order.codigoCuponSnapshot === 'CANJE MOCKA POINTS';
 
   /* ── 1. Información del pedido ── */
   const date = new Date(order.creadoEn || Date.now());
-  document.getElementById('orderInfo').innerHTML = `
+  let orderInfoHtml = `
     <h3>Información del pedido</h3>
     <div>Número: <strong>${order.numeroPedido || order.id}</strong></div>
     <div>Estado: <strong>${order.estado || 'Pendiente'}</strong></div>
     <div>Fecha: ${date.toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})}</div>`;
+  
+  if (isMockaPointsRedemption) {
+    orderInfoHtml += `<div style="margin-top:10px;padding:10px;background:linear-gradient(135deg,#fff8e1,#ffe082);border-radius:8px;font-weight:600;color:#4e2a00">🏆 CANJE MOCKA POINTS</div>`;
+  }
+  document.getElementById('orderInfo').innerHTML = orderInfoHtml;
 
   /* ── 2. Datos del cliente ── */
   document.getElementById('clientInfo').innerHTML = `
@@ -85,19 +91,27 @@ function renderOrder(data){
   const descuento = Number(order.descuentoTotal) || 0;
   const envio = Number(order.precioEnvio) || 0;
 
-  document.getElementById('ordSubtotal').textContent  = fmt.format(subtotal);
-  document.getElementById('ordShipping').textContent  = fmt.format(envio);
-
-  // Show/hide discount row
-  const discountRow = document.getElementById('ordDiscountRow');
-  if (descuento > 0) {
-    discountRow.style.display = '';
-    document.getElementById('ordDiscount').textContent = '-' + fmt.format(descuento);
+  if (isMockaPointsRedemption) {
+    // Orden de canje con Mocka Points - mostrar mensaje especial
+    document.getElementById('ordSubtotal').textContent = 'Canje';
+    document.getElementById('ordShipping').textContent = '$0';
+    document.getElementById('ordDiscountRow').style.display = 'none';
+    document.getElementById('ordTotal').innerHTML = '<span style="color:#f57f17;font-weight:700">🏆 GRATIS</span>';
   } else {
-    discountRow.style.display = 'none';
-  }
+    document.getElementById('ordSubtotal').textContent  = fmt.format(subtotal);
+    document.getElementById('ordShipping').textContent  = fmt.format(envio);
 
-  document.getElementById('ordTotal').textContent     = fmt.format(total);
+    // Show/hide discount row
+    const discountRow = document.getElementById('ordDiscountRow');
+    if (descuento > 0) {
+      discountRow.style.display = '';
+      document.getElementById('ordDiscount').textContent = '-' + fmt.format(descuento);
+    } else {
+      discountRow.style.display = 'none';
+    }
+
+    document.getElementById('ordTotal').textContent     = fmt.format(total);
+  }
 }
 
 // ── init ──

@@ -323,8 +323,28 @@ const AdminController = {
 
   async getCategories(req, res) {
     try {
-      const rows = await q('SELECT * FROM categoria WHERE activo=1 ORDER BY nombre');
+      const rows = await q('SELECT * FROM categoria ORDER BY activo DESC, nombre');
       res.json({ categorias: rows });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async toggleCategory(req, res) {
+    try {
+      const { activo } = req.body;
+      await q('UPDATE categoria SET activo=? WHERE id=?', [activo ? 1 : 0, req.params.id]);
+      res.json({ ok: true, message: activo ? 'Categoría activada' : 'Categoría desactivada' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async toggleUser(req, res) {
+    try {
+      const { activo } = req.body;
+      await q('UPDATE usuario SET activo=? WHERE id=?', [activo ? 1 : 0, req.params.id]);
+      res.json({ ok: true, message: activo ? 'Usuario activado' : 'Usuario desactivado' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

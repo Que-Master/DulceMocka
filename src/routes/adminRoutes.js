@@ -19,6 +19,7 @@ router.get('/estados', admin.getEstados);
 // Usuarios
 router.get('/usuarios', admin.getUsers);
 router.put('/usuarios/:id', admin.updateUser);
+router.patch('/usuarios/:id/toggle', admin.toggleUser);
 router.get('/roles', admin.getRoles);
 
 // Productos
@@ -31,6 +32,7 @@ router.delete('/productos/:id', admin.deleteProduct);
 router.get('/categorias', admin.getCategories);
 router.post('/categorias', admin.createCategory);
 router.put('/categorias/:id', admin.updateCategory);
+router.patch('/categorias/:id/toggle', admin.toggleCategory);
 
 // Sectores
 router.get('/sectores', admin.getSectors);

@@ -9,6 +9,26 @@ function q(sql, params) {
   });
 }
 
+/**
+ * Verifica si el perfil del usuario está completo
+ * Campos requeridos: nombre, telefono, y al menos una dirección
+ */
+async function perfilCompleto(userId) {
+  const usuarios = await q('SELECT nombre, telefono FROM usuario WHERE id = ?', [userId]);
+  if (!usuarios.length) return { completo: false, faltantes: ['usuario'] };
+  
+  const u = usuarios[0];
+  const faltantes = [];
+  if (!u.nombre || u.nombre.trim() === '') faltantes.push('nombre');
+  if (!u.telefono || u.telefono.trim() === '') faltantes.push('teléfono');
+  
+  // Verificar si tiene al menos una dirección activa
+  const direcciones = await q('SELECT 1 FROM usuariodireccion WHERE usuarioId = ? AND activo = 1 LIMIT 1', [userId]);
+  if (!direcciones.length) faltantes.push('dirección de envío');
+  
+  return { completo: faltantes.length === 0, faltantes };
+}
+
 const CuponController = {
 
   /**
@@ -126,13 +146,32 @@ const CuponController = {
   /**
    * POST /api/cupones/validar — validar cupón para aplicar en carrito
    * Body: { codigo, subtotal }
+   * Requiere: usuario autenticado con perfil completo
    */
   async validarCupon(req, res) {
     try {
       const { codigo, subtotal } = req.body;
       if (!codigo) return res.status(400).json({ error: 'Código requerido' });
 
-      const userId = (req.isAuthenticated && req.isAuthenticated()) ? req.user.id : null;
+      // Verificar que el usuario esté autenticado
+      if (!req.isAuthenticated || !req.isAuthenticated()) {
+        return res.status(401).json({ 
+          error: 'Debes iniciar sesión para usar cupones',
+          requiresLogin: true
+        });
+      }
+
+      const userId = req.user.id;
+
+      // Verificar que el perfil esté completo
+      const { completo, faltantes } = await perfilCompleto(userId);
+      if (!completo) {
+        return res.status(400).json({
+          error: 'Completa tu perfil para usar cupones. Falta: ' + faltantes.join(', '),
+          requiresProfile: true,
+          faltantes
+        });
+      }
 
       // Buscar cupón
       const cupones = await q('SELECT * FROM cupon WHERE codigo = ? AND activo = 1', [codigo.trim().toUpperCase()]);
@@ -156,17 +195,15 @@ const CuponController = {
       }
 
       // Si el usuario está autenticado, verificar que tenga el cupón asignado y no usado
-      if (userId) {
-        const uc = await q(
-          'SELECT * FROM usuariocupon WHERE usuarioId = ? AND cuponId = ? AND eliminadoEn IS NULL',
-          [userId, cupon.id]
-        );
-        if (!uc.length) {
-          return res.status(400).json({ error: 'No tienes este cupón. Reclámalo primero en tu perfil.' });
-        }
-        if (uc[0].usadoEn) {
-          return res.status(400).json({ error: 'Ya utilizaste este cupón' });
-        }
+      const uc = await q(
+        'SELECT * FROM usuariocupon WHERE usuarioId = ? AND cuponId = ? AND eliminadoEn IS NULL',
+        [userId, cupon.id]
+      );
+      if (!uc.length) {
+        return res.status(400).json({ error: 'No tienes este cupón. Reclámalo primero en tu perfil.' });
+      }
+      if (uc[0].usadoEn) {
+        return res.status(400).json({ error: 'Ya utilizaste este cupón' });
       }
 
       // Calcular descuento

@@ -9,7 +9,7 @@ const $categories = document.getElementById('categories');
 const $productsGrid = document.getElementById('productsGrid');
 let categorias = [];
 let productos = [];
-let categoriaActiva = null;
+let categoriaActiva = null; // null = todos, 'mockapoints' = canjeable, o categoryId
 
 async function fetchCategorias() {
   try {
@@ -23,9 +23,19 @@ async function fetchCategorias() {
 
 async function fetchProductos(categoriaId = null) {
   try {
-    const url = categoriaId ? `${api.productos}?categoria=${categoriaId}` : api.productos;
+    let url = api.productos;
+    if (categoriaId && categoriaId !== 'mockapoints') {
+      url = `${api.productos}?categoria=${categoriaId}`;
+    }
     const res = await fetch(url);
-    productos = await res.json();
+    let prods = await res.json();
+    
+    // Si es filtro de Mocka Points, mostrar solo productos canjeables
+    if (categoriaId === 'mockapoints') {
+      prods = prods.filter(p => p.costoMockaPoints && p.costoMockaPoints > 0);
+    }
+    
+    productos = prods;
     renderProductos();
   } catch (e) {
     console.error('Error cargando productos', e);
@@ -40,6 +50,13 @@ function renderCategorias() {
   allBtn.onclick = () => { categoriaActiva = null; fetchProductos(null); updateCategoriaActive(); };
   $categories.appendChild(allBtn);
 
+  // Botón especial de Mocka Points
+  const mpBtn = document.createElement('button');
+  mpBtn.className = 'pill mp-pill' + (categoriaActiva === 'mockapoints' ? ' active' : '');
+  mpBtn.textContent = '🏆 Mocka Points';
+  mpBtn.onclick = () => { categoriaActiva = 'mockapoints'; fetchProductos('mockapoints'); updateCategoriaActive(); };
+  $categories.appendChild(mpBtn);
+
   categorias.forEach(cat => {
     const btn = document.createElement('button');
     btn.className = 'pill' + (categoriaActiva == cat.id ? ' active' : '');
@@ -52,7 +69,12 @@ function renderCategorias() {
 function updateCategoriaActive() {
   Array.from($categories.children).forEach(btn => btn.classList.remove('active'));
   Array.from($categories.children).forEach(btn => {
-    if ((categoriaActiva === null && btn.textContent === 'Todos') || btn.textContent === (categorias.find(c => c.id == categoriaActiva) || {}).nombre) {
+    const btnText = btn.textContent;
+    if (categoriaActiva === null && btnText === 'Todos') {
+      btn.classList.add('active');
+    } else if (categoriaActiva === 'mockapoints' && btnText === '🏆 Mocka Points') {
+      btn.classList.add('active');
+    } else if (btnText === (categorias.find(c => c.id == categoriaActiva) || {}).nombre) {
       btn.classList.add('active');
     }
   });
@@ -81,6 +103,14 @@ function renderProductos() {
       img.textContent = p.emoji || '🍬';
     }
     top.appendChild(img);
+
+    // Badge de Mocka Points si el producto es canjeable
+    if (p.costoMockaPoints && p.costoMockaPoints > 0) {
+      const mpBadge = document.createElement('div');
+      mpBadge.className = 'mp-badge';
+      mpBadge.textContent = '🏆 ' + p.costoMockaPoints + ' pts';
+      top.appendChild(mpBadge);
+    }
 
     const body = document.createElement('div');
     body.className = 'card-body';
@@ -235,7 +265,7 @@ async function initMockaPoints() {
 }
 
 async function redeemProduct(prod, btn) {
-  if (!confirm('¿Deseas canjear "' + prod.nombre + '" por ' + prod.costoMockaPoints + ' Mocka Points?')) return;
+  if (!confirm('¿Deseas canjear "' + prod.nombre + '" por ' + prod.costoMockaPoints + ' Mocka Points?\n\n⚠️ Solo retiro en tienda')) return;
   btn.disabled = true;
   btn.textContent = 'Canjeando...';
   try {
@@ -246,10 +276,33 @@ async function redeemProduct(prod, btn) {
     });
     const data = await res.json();
     if (data.ok) {
-      alert('🏆 ¡Canje exitoso! Te quedan ' + data.puntosRestantes + ' Mocka Points. \nRecibirás tu producto pronto.');
-      initMockaPoints(); // Refresh
+      // Mostrar modal/confirmación de canje exitoso
+      const verBoleta = confirm(
+        '🏆 ¡CANJE EXITOSO!\n\n' +
+        '📦 Producto: ' + data.producto.nombre + '\n' +
+        '🎟️ Boleta: #' + data.numeroPedido + '\n' +
+        '🏪 Retiro: En tienda\n' +
+        '💰 Puntos restantes: ' + data.puntosRestantes + '\n\n' +
+        '¿Deseas ver tu boleta de canje?'
+      );
+      if (verBoleta) {
+        window.location.href = '/order.html?id=' + data.pedidoId;
+      } else {
+        initMockaPoints(); // Refresh
+      }
     } else {
-      alert(data.error || 'Error al canjear');
+      // Handle special cases
+      if (data.requiresLogin) {
+        if (confirm(data.error + '\n\n¿Deseas iniciar sesión?')) {
+          window.location.href = '/login.html';
+        }
+      } else if (data.requiresProfile) {
+        if (confirm(data.error + '\n\n¿Deseas completar tu perfil?')) {
+          window.location.href = '/profile.html';
+        }
+      } else {
+        alert(data.error || 'Error al canjear');
+      }
       btn.disabled = false;
       btn.textContent = 'Canjear';
     }
