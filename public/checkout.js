@@ -4,6 +4,38 @@ function coFmt(v){ return coCurrency.format(Number(v)||0); }
 
 function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')) || []; }catch{ return []; } }
 
+// ═══ Cargar estado del local ═══
+async function loadEstadoLocal() {
+  try {
+    const banner = document.getElementById('localStatusBanner');
+    const text = document.getElementById('localStatusText');
+    if (!banner || !text) return;
+
+    const res = await fetch('/api/estado-local');
+    const data = await res.json();
+    
+    if (data.abierto) {
+      banner.className = 'local-status-banner abierto';
+      text.innerHTML = '🟢 <strong>ABIERTO</strong> — Puedes realizar tu pedido';
+    } else {
+      banner.className = 'local-status-banner cerrado';
+      let msg = '🔴 <strong>CERRADO</strong>';
+      if (data.mensaje) {
+        msg += ' — ' + data.mensaje;
+      } else {
+        msg += ' — No se pueden realizar pedidos en este momento';
+      }
+      msg += ' (Horario: ' + data.horaApertura + ' - ' + data.horaCierre + ')';
+      text.innerHTML = msg;
+    }
+    
+    banner.style.display = 'block';
+  } catch (e) {
+    console.error('Error cargando estado del local', e);
+  }
+}
+loadEstadoLocal();
+
 /* ── sectores cache (loaded once) ── */
 let sectoresCache = [];
 let savedAddresses = [];
@@ -194,13 +226,23 @@ function renderSummary(){
   try {
     const savedCoupon = JSON.parse(localStorage.getItem('appliedCoupon'));
     if (savedCoupon && savedCoupon.codigo) {
-      checkoutCuponCodigo = savedCoupon.codigo;
-      const porciento = Number(savedCoupon.porcentajeDescuento) || 0;
-      const limite = Number(savedCoupon.limiteDescuento) || Infinity;
-      descuento = Math.round((subtotal * porciento) / 100);
-      if (descuento > limite) descuento = limite;
-      if (discountRow) { discountRow.style.display = ''; }
-      if (discountEl) { discountEl.textContent = '-' + coFmt(descuento); }
+      // Validar que el subtotal cumpla con el mínimo de compra
+      const minimo = Number(savedCoupon.minimoCompra) || 0;
+      if (minimo > 0 && subtotal < minimo) {
+        // No cumple con el mínimo, remover cupón
+        localStorage.removeItem('appliedCoupon');
+        checkoutCuponCodigo = null;
+        if (discountRow) discountRow.style.display = 'none';
+        console.log('Cupón removido: subtotal no cumple con el mínimo de compra');
+      } else {
+        checkoutCuponCodigo = savedCoupon.codigo;
+        const porciento = Number(savedCoupon.porcentajeDescuento) || 0;
+        const limite = Number(savedCoupon.limiteDescuento) || Infinity;
+        descuento = Math.round((subtotal * porciento) / 100);
+        if (descuento > limite) descuento = limite;
+        if (discountRow) { discountRow.style.display = ''; }
+        if (discountEl) { discountEl.textContent = '-' + coFmt(descuento); }
+      }
     } else {
       if (discountRow) discountRow.style.display = 'none';
     }
@@ -256,6 +298,24 @@ document.getElementById('checkoutForm').addEventListener('submit', async functio
   // snapshot cart FIRST
   const cartItems = getCart();
   if(!cartItems.length){ alert('Tu carrito está vacío. Agrega productos antes de pedir.'); return; }
+
+  // Verificar si el local está abierto
+  try {
+    const estadoRes = await fetch('/api/estado-local');
+    const estadoData = await estadoRes.json();
+    if (!estadoData.abierto) {
+      let msg = '🔴 El local está cerrado en este momento.\n\n';
+      if (estadoData.mensaje) {
+        msg += estadoData.mensaje + '\n\n';
+      }
+      msg += 'Horario de atención: ' + estadoData.horaApertura + ' - ' + estadoData.horaCierre + '\n\n';
+      msg += 'Puedes guardar tu carrito y completar tu pedido cuando abramos.';
+      alert(msg);
+      return;
+    }
+  } catch (err) {
+    console.error('Error verificando estado del local:', err);
+  }
 
   const nombre   = document.getElementById('nombre').value.trim();
   const email    = document.getElementById('email').value.trim();

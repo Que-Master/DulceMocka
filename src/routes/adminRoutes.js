@@ -61,4 +61,15 @@ router.delete('/slider/:id', admin.deleteSlide);
 router.get('/canjes', admin.getCanjes);
 router.patch('/canjes/:id', admin.updateCanjeStatus);
 
+// Configuración del local (horarios)
+router.get('/configuracion-local', admin.getConfiguracionLocal);
+router.put('/configuracion-local', admin.updateConfiguracionLocal);
+router.post('/configuracion-local/toggle', admin.toggleLocalAbierto);
+
+// Notificaciones
+router.get('/notificaciones', admin.getNotificaciones);
+router.post('/notificaciones', admin.createNotificacion);
+router.delete('/notificaciones/:id', admin.deleteNotificacion);
+router.patch('/notificaciones/:id/toggle', admin.toggleNotificacion);
+
 module.exports = router;

@@ -41,6 +41,56 @@ router.get('/producto/:id', productoController.obtenerProducto);
 router.get('/ingredientes', productoController.obtenerIngredientes);
 router.get('/sectores', productoController.obtenerSectores);
 
+// Estado del local (abierto/cerrado) - Público
+router.get('/estado-local', async (req, res) => {
+  try {
+    const rows = await q('SELECT * FROM configuracion_local WHERE id = "config"');
+    const config = rows[0];
+    
+    if (!config) {
+      return res.json({ abierto: true, mensaje: null, enHorario: true });
+    }
+
+    const now = new Date();
+    const horaActual = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    const horaApertura = config.horaApertura ? config.horaApertura.substring(0, 5) : '08:00';
+    const horaCierre = config.horaCierre ? config.horaCierre.substring(0, 5) : '20:00';
+    
+    // Verificar si está en horario de atención
+    const enHorario = horaActual >= horaApertura && horaActual < horaCierre;
+    
+    // Si forzarEstado está activo, usar el estado manual
+    // Si no, usar el horario
+    let estaAbierto;
+    if (config.forzarEstado) {
+      estaAbierto = config.abierto === 1;
+    } else {
+      estaAbierto = enHorario;
+    }
+
+    res.json({
+      abierto: estaAbierto,
+      enHorario,
+      horaApertura,
+      horaCierre,
+      forzado: config.forzarEstado === 1,
+      mensaje: config.mensaje || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Notificaciones públicas (solo activas)
+router.get('/notificaciones', async (req, res) => {
+  try {
+    const notifs = await q('SELECT id, titulo, cuerpo, link, creadoEn FROM notificacion_global WHERE activa = 1 ORDER BY creadoEn DESC');
+    res.json(notifs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Slider público
 router.get('/slider', (req, res) => {
   const db = require('../models/db');

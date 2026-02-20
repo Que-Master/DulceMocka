@@ -374,3 +374,173 @@ async function initSlider() {
 
   } catch (e) { /* slider not available, fallback stays */ }
 }
+
+// ═══ Estado del Local (Abierto/Cerrado) ═══
+async function loadEstadoLocal() {
+  try {
+    const banner = document.getElementById('localStatusBanner');
+    const text = document.getElementById('localStatusText');
+    if (!banner || !text) return;
+
+    const res = await fetch('/api/estado-local');
+    const data = await res.json();
+    
+    if (data.abierto) {
+      banner.className = 'local-status-banner abierto';
+      text.innerHTML = '🟢 <strong>ABIERTO</strong> — Horario: ' + data.horaApertura + ' - ' + data.horaCierre;
+    } else {
+      banner.className = 'local-status-banner cerrado';
+      let msg = '🔴 <strong>CERRADO</strong>';
+      if (data.mensaje) {
+        msg += ' — ' + data.mensaje;
+      } else {
+        msg += ' — Horario de atención: ' + data.horaApertura + ' - ' + data.horaCierre;
+      }
+      text.innerHTML = msg;
+    }
+    
+    banner.style.display = 'block';
+    
+    // Guardar estado en sessionStorage para usarlo en checkout
+    sessionStorage.setItem('localAbierto', data.abierto ? '1' : '0');
+  } catch (e) {
+    console.error('Error cargando estado del local', e);
+  }
+}
+
+// Llamar al cargar la página
+loadEstadoLocal();
+
+/* ══════════════════════════════════════════
+   NOTIFICACIONES
+   ══════════════════════════════════════════ */
+const notifBell = document.getElementById('notifBell');
+const notifDropdown = document.getElementById('notifDropdown');
+const notifDropdownList = document.getElementById('notifDropdownList');
+const notifBadge = document.getElementById('notifBadge');
+
+// Track dismissed notifications
+function getDismissedNotifs() {
+  try {
+    return JSON.parse(localStorage.getItem('dismissedNotifs') || '[]');
+  } catch (e) { return []; }
+}
+
+function saveDismissedNotif(id) {
+  const dismissed = getDismissedNotifs();
+  if (!dismissed.includes(id)) {
+    dismissed.push(id);
+    localStorage.setItem('dismissedNotifs', JSON.stringify(dismissed));
+  }
+}
+
+async function loadNotificaciones() {
+  try {
+    const res = await fetch('/api/notificaciones');
+    const notifs = await res.json();
+    const dismissed = getDismissedNotifs();
+    
+    // Filter out dismissed notifications for badge count
+    const unread = notifs.filter(n => !dismissed.includes(n.id));
+    
+    // Update badge
+    if (notifBadge) {
+      if (unread.length > 0) {
+        notifBadge.textContent = unread.length > 9 ? '9+' : unread.length;
+        notifBadge.style.display = '';
+      } else {
+        notifBadge.style.display = 'none';
+      }
+    }
+    
+    // Render all notifications
+    if (!notifDropdownList) return;
+    
+    if (!notifs.length) {
+      notifDropdownList.innerHTML = '<p class="notif-empty">No hay notificaciones</p>';
+      return;
+    }
+    
+    notifDropdownList.innerHTML = notifs.map(n => {
+      const isRead = dismissed.includes(n.id);
+      return `
+        <div class="notif-item-card ${isRead ? 'read' : ''}" data-id="${n.id}" ${n.link ? `data-link="${escapeAttr(n.link)}"` : ''}>
+          <h4>${escapeHtml(n.titulo)}</h4>
+          <p>${escapeHtml(n.cuerpo)}</p>
+          <div class="notif-time">${timeAgo(n.creadoEn)}</div>
+        </div>
+      `;
+    }).join('');
+    
+    // Add click handlers
+    notifDropdownList.querySelectorAll('.notif-item-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = Number(card.dataset.id);
+        const link = card.dataset.link;
+        saveDismissedNotif(id);
+        card.classList.add('read');
+        updateBadgeCount();
+        if (link) {
+          window.location.href = link;
+        }
+      });
+    });
+  } catch (e) {
+    console.error('Error cargando notificaciones', e);
+  }
+}
+
+function updateBadgeCount() {
+  if (!notifBadge) return;
+  const items = notifDropdownList.querySelectorAll('.notif-item-card:not(.read)');
+  if (items.length > 0) {
+    notifBadge.textContent = items.length > 9 ? '9+' : items.length;
+    notifBadge.style.display = '';
+  } else {
+    notifBadge.style.display = 'none';
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return (str || '').replace(/"/g, '&quot;');
+}
+
+function timeAgo(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = Math.floor((now - date) / 1000);
+  
+  if (diff < 60) return 'Hace un momento';
+  if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} hora${Math.floor(diff / 3600) > 1 ? 's' : ''}`;
+  if (diff < 604800) return `Hace ${Math.floor(diff / 86400)} día${Math.floor(diff / 86400) > 1 ? 's' : ''}`;
+  return date.toLocaleDateString('es-CL');
+}
+
+// Toggle dropdown
+if (notifBell && notifDropdown) {
+  notifBell.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    notifDropdown.classList.toggle('open');
+    if (notifDropdown.classList.contains('open')) {
+      loadNotificaciones();
+    }
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!notifDropdown.contains(e.target) && e.target !== notifBell) {
+      notifDropdown.classList.remove('open');
+    }
+  });
+}
+
+// Load on init
+loadNotificaciones();

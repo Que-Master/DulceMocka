@@ -31,6 +31,11 @@
 .topbar-user span{font-weight:600;color:var(--text);font-size:.9rem}
 .admin-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#7b61ff,#c776ff);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
 
+/* ── Topbar Actions ── */
+.topbar-actions{display:flex;align-items:center;gap:.75rem;margin-right:auto;margin-left:1rem}
+.topbar-btn{background:linear-gradient(135deg,#7b61ff,#9d7bff);color:#fff;border:none;padding:.5rem 1rem;border-radius:8px;font-size:.85rem;cursor:pointer;display:flex;align-items:center;gap:.35rem;transition:all .2s}
+.topbar-btn:hover{background:linear-gradient(135deg,#6951e5,#8a6aef);transform:translateY(-1px);box-shadow:0 4px 12px rgba(123,97,255,.3)}
+
 /* ── Content ── */
 .admin-content{padding:1.5rem;flex:1}
 .section{display:none}
@@ -68,8 +73,12 @@
 .sales-value{color:var(--muted);font-size:.9rem}
 
 /* ── Tables ── */
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem}
 .section-header h3{margin:0;font-size:1.2rem}
+.filter-tabs{display:flex;gap:.5rem;flex-wrap:wrap}
+.filter-tab{padding:.5rem 1rem;border:1px solid var(--border);border-radius:999px;background:#fff;cursor:pointer;font-size:.85rem;font-weight:600;color:var(--muted);transition:all .2s}
+.filter-tab:hover{border-color:var(--primary);color:var(--primary)}
+.filter-tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
 .table-wrap{background:var(--card);border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.04);overflow-x:auto}
 .admin-table{width:100%;border-collapse:collapse}
 .admin-table thead th{background:#f9fafb;padding:.9rem 1rem;text-align:left;font-size:.82rem;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:2px solid var(--border)}
@@ -118,6 +127,9 @@
 /* ── Modals ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:16px;padding:1.75rem;width:95%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.2);animation:modalIn .2s ease}
+.modal-body{padding:0}
 .modal-card{background:#fff;border-radius:16px;padding:1.75rem;width:95%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.2);animation:modalIn .2s ease}
 .modal-card.modal-lg{max-width:750px}
 @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}

@@ -76,9 +76,15 @@
      HELPERS
      ══════════════════════════════════════════ */
   function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+  const escapeHtml = esc; // alias
   function fmt(n) { return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(Number(n || 0)); }
   function fmtDate(d) { return d ? new Date(d).toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'; }
   function badge(text, type) { return '<span class="badge badge-' + type + '">' + esc(text) + '</span>'; }
+  function showMsg(el, msg, ok) {
+    el.textContent = msg;
+    el.style.color = ok ? '#22c55e' : '#e74c3c';
+    setTimeout(() => el.textContent = '', 3000);
+  }
 
   function statusBadge(estado) {
     const map = { 'Pendiente': 'warning', 'Preparando': 'info', 'Listo para retirar': 'primary', 'En Camino': 'primary', 'Entregado': 'success', 'Cancelado': 'danger' };
@@ -141,7 +147,85 @@
     html += '</tbody></table>';
     if (!data.recentOrders || data.recentOrders.length === 0) html = '<p class="empty">No hay pedidos aún</p>';
     document.getElementById('recentOrders').innerHTML = html;
+
+    // Cargar configuración del local
+    loadConfiguracionLocal();
   }
+
+  // ═══ CONFIGURACIÓN DEL LOCAL (HORARIOS) ═══
+  async function loadConfiguracionLocal() {
+    try {
+      const data = await api('/api/admin/configuracion-local');
+      
+      // Actualizar inputs de horario
+      document.getElementById('horaApertura').value = data.horaApertura || '08:00';
+      document.getElementById('horaCierre').value = data.horaCierre || '20:00';
+      
+      // Actualizar badge de estado
+      const badgeAbierto = document.getElementById('badgeAbierto');
+      const badgeCerrado = document.getElementById('badgeCerrado');
+      
+      if (data.abierto) {
+        badgeAbierto.style.display = 'inline-block';
+        badgeCerrado.style.display = 'none';
+      } else {
+        badgeAbierto.style.display = 'none';
+        badgeCerrado.style.display = 'inline-block';
+      }
+      
+      // Info de horario
+      let info = 'Horario: ' + data.horaApertura + ' - ' + data.horaCierre;
+      if (data.forzarEstado) {
+        info += ' (Estado manual activo)';
+      } else {
+        info += ' (Automático según horario)';
+      }
+      document.getElementById('horarioInfo').textContent = info;
+    } catch (e) {
+      console.error('Error cargando configuración:', e);
+    }
+  }
+
+  document.getElementById('btnAbrirLocal').addEventListener('click', async () => {
+    if (!confirm('¿Abrir el local ahora?')) return;
+    await api('/api/admin/configuracion-local/toggle', 'POST', { abierto: true });
+    loadConfiguracionLocal();
+  });
+
+  document.getElementById('btnCerrarLocal').addEventListener('click', async () => {
+    const mensaje = prompt('¿Cerrar el local? Puedes agregar un mensaje opcional (ej: "Volvemos pronto"):', '');
+    if (mensaje === null) return;
+    await api('/api/admin/configuracion-local/toggle', 'POST', { abierto: false, mensaje: mensaje || null });
+    loadConfiguracionLocal();
+  });
+
+  document.getElementById('btnGuardarHorario').addEventListener('click', async () => {
+    const horaApertura = document.getElementById('horaApertura').value;
+    const horaCierre = document.getElementById('horaCierre').value;
+    const config = await api('/api/admin/configuracion-local');
+    await api('/api/admin/configuracion-local', 'PUT', {
+      horaApertura,
+      horaCierre,
+      abierto: config.abierto,
+      forzarEstado: config.forzarEstado,
+      mensaje: config.mensaje
+    });
+    alert('✅ Horario guardado');
+    loadConfiguracionLocal();
+  });
+
+  document.getElementById('btnUsarHorario').addEventListener('click', async () => {
+    if (!confirm('¿Usar el horario automático? El local se abrirá/cerrará según el horario configurado.')) return;
+    const config = await api('/api/admin/configuracion-local');
+    await api('/api/admin/configuracion-local', 'PUT', {
+      horaApertura: config.horaApertura,
+      horaCierre: config.horaCierre,
+      abierto: config.abierto,
+      forzarEstado: false,
+      mensaje: null
+    });
+    loadConfiguracionLocal();
+  });
 
   function statCard(icon, label, value, color) {
     return '<div class="stat-card stat-' + color + '"><div class="stat-icon">' + icon + '</div><div class="stat-info"><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div></div>';
@@ -157,18 +241,112 @@
     estados = data.estados || [];
   }
 
+  // Filtro de pedidos activo
+  let orderFilter = 'proceso'; // 'proceso', 'finalizados', 'todos'
+
+  // Setup filter buttons
+  document.querySelectorAll('#ordersFilter .filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#ordersFilter .filter-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      orderFilter = btn.dataset.filter;
+      loadOrders();
+    });
+  });
+
+  // Setup date filters
+  document.getElementById('orderDateFrom').addEventListener('change', loadOrders);
+  document.getElementById('orderDateTo').addEventListener('change', loadOrders);
+  document.getElementById('orderDeliveryFilter').addEventListener('change', loadOrders);
+  document.getElementById('orderSearch').addEventListener('input', loadOrders);
+  document.getElementById('btnClearFilters').addEventListener('click', () => {
+    document.getElementById('orderDateFrom').value = '';
+    document.getElementById('orderDateTo').value = '';
+    document.getElementById('orderDeliveryFilter').value = 'todos';
+    document.getElementById('orderSearch').value = '';
+    loadOrders();
+  });
+
   async function loadOrders() {
     await loadEstados();
     const data = await api('/api/admin/pedidos');
     const tbody = document.querySelector('#ordersTable tbody');
     tbody.innerHTML = '';
-    (data.pedidos || []).forEach(p => {
+
+    // Filtrar pedidos según el filtro activo
+    const estadosEnProceso = ['Pendiente', 'Preparando', 'Listo para retirar', 'En Camino'];
+    const estadosFinalizados = ['Entregado', 'Cancelado'];
+    let pedidos = data.pedidos || [];
+
+    if (orderFilter === 'proceso') {
+      pedidos = pedidos.filter(p => estadosEnProceso.includes(p.estado));
+    } else if (orderFilter === 'finalizados') {
+      pedidos = pedidos.filter(p => estadosFinalizados.includes(p.estado));
+    }
+
+    // Filtrar por fechas
+    const dateFrom = document.getElementById('orderDateFrom').value;
+    const dateTo = document.getElementById('orderDateTo').value;
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      from.setHours(0, 0, 0, 0);
+      pedidos = pedidos.filter(p => new Date(p.creadoEn) >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      pedidos = pedidos.filter(p => new Date(p.creadoEn) <= to);
+    }
+
+    // Filtrar por tipo de entrega
+    const deliveryFilter = document.getElementById('orderDeliveryFilter').value;
+    if (deliveryFilter === 'retiro') {
+      pedidos = pedidos.filter(p => {
+        const tipoE = (p.tipoEntrega || '').toLowerCase();
+        return tipoE.indexOf('recogida') >= 0 || tipoE.indexOf('retiro') >= 0;
+      });
+    } else if (deliveryFilter === 'despacho') {
+      pedidos = pedidos.filter(p => {
+        const tipoE = (p.tipoEntrega || '').toLowerCase();
+        return tipoE.indexOf('recogida') < 0 && tipoE.indexOf('retiro') < 0;
+      });
+    }
+
+    // Filtrar por búsqueda (número de pedido o nombre del cliente)
+    const searchTerm = (document.getElementById('orderSearch').value || '').toLowerCase().trim();
+    if (searchTerm) {
+      pedidos = pedidos.filter(p => {
+        const numPedido = (p.numeroPedido || '').toLowerCase();
+        const nombreCliente = (p.nombreContacto || '').toLowerCase();
+        const correoCliente = (p.correoContacto || '').toLowerCase();
+        return numPedido.includes(searchTerm) || nombreCliente.includes(searchTerm) || correoCliente.includes(searchTerm);
+      });
+    }
+
+    if (!pedidos.length) {
+      let msg = 'No hay pedidos';
+      if (orderFilter === 'proceso') msg += ' en proceso';
+      else if (orderFilter === 'finalizados') msg += ' finalizados';
+      if (dateFrom || dateTo) msg += ' en el rango de fechas seleccionado';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">' + msg + '</td></tr>';
+      return;
+    }
+
+    pedidos.forEach(p => {
       const tr = document.createElement('tr');
       var tipoE = (p.tipoEntrega || '').toLowerCase();
       var esRetiro = tipoE.indexOf('recogida') >= 0 || tipoE.indexOf('retiro') >= 0;
       var entregaBadge = esRetiro
         ? '<span class="badge badge-info">🏪 Retiro en tienda</span>'
         : '<span class="badge badge-warning">🚚 Despacho</span>';
+
+      // Filtrar estados según tipo de entrega
+      var estadosFiltrados = estados.filter(e => {
+        if (esRetiro && e.nombre === 'En Camino') return false;
+        if (!esRetiro && e.nombre === 'Listo para retirar') return false;
+        return true;
+      });
+
       tr.innerHTML =
         '<td><strong>' + esc(p.numeroPedido) + '</strong></td>' +
         '<td>' + esc(p.nombreContacto) + '<br><small>' + esc(p.correoContacto) + '</small></td>' +
@@ -178,7 +356,7 @@
         '<td>' + fmtDate(p.creadoEn) + '</td>' +
         '<td><button class="btn small" data-view-order="' + p.id + '">👁️</button> ' +
           '<select class="status-select" data-order-status="' + p.id + '">' +
-            estados.map(e => '<option value="' + e.id + '"' + (e.id === p.estadoId ? ' selected' : '') + '>' + e.nombre + '</option>').join('') +
+            estadosFiltrados.map(e => '<option value="' + e.id + '"' + (e.id === p.estadoId ? ' selected' : '') + '>' + e.nombre + '</option>').join('') +
           '</select></td>';
       tbody.appendChild(tr);
     });
@@ -999,6 +1177,106 @@
   // Poll every 15 seconds
   pollNewOrders();
   setInterval(pollNewOrders, 15000);
+
+  /* ══════════════════════════════════════════
+     NOTIFICACIONES
+     ══════════════════════════════════════════ */
+  const notifModalBackdrop = document.getElementById('notifModalBackdrop');
+  const btnNotificaciones = document.getElementById('btnNotificaciones');
+  const closeNotifModal = document.getElementById('closeNotifModal');
+  const notifForm = document.getElementById('notifForm');
+  const notifMsg = document.getElementById('notifMsg');
+  const notifList = document.getElementById('notifList');
+
+  btnNotificaciones.addEventListener('click', () => {
+    notifModalBackdrop.style.display = 'flex';
+    loadNotificaciones();
+  });
+
+  closeNotifModal.addEventListener('click', () => {
+    notifModalBackdrop.style.display = 'none';
+  });
+
+  notifModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === notifModalBackdrop) {
+      notifModalBackdrop.style.display = 'none';
+    }
+  });
+
+  async function loadNotificaciones() {
+    try {
+      const res = await fetch('/api/admin/notificaciones');
+      const notifs = await res.json();
+      if (!notifs.length) {
+        notifList.innerHTML = '<p style="color:#999;font-size:.85rem">No hay notificaciones enviadas</p>';
+        return;
+      }
+      notifList.innerHTML = notifs.map(n => `
+        <div class="notif-item" style="padding:.75rem;border:1px solid #eee;border-radius:8px;margin-bottom:.5rem;background:${n.activa ? '#f8fff8' : '#fafafa'}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
+            <div style="flex:1">
+              <strong style="font-size:.9rem">${esc(n.titulo)}</strong>
+              <p style="margin:.25rem 0;font-size:.8rem;color:#666">${esc(n.cuerpo)}</p>
+              ${n.link ? `<a href="${esc(n.link)}" target="_blank" style="font-size:.75rem;color:#7b61ff">🔗 ${esc(n.link)}</a>` : ''}
+              <div style="font-size:.7rem;color:#999;margin-top:.3rem">${new Date(n.creadoEn).toLocaleString('es-CL')}</div>
+            </div>
+            <div style="display:flex;gap:.25rem;flex-shrink:0">
+              <button onclick="toggleNotif(${n.id})" class="btn-icon" style="background:${n.activa ? '#f59e0b' : '#22c55e'};color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;font-size:.7rem;cursor:pointer" title="${n.activa ? 'Desactivar' : 'Activar'}">${n.activa ? '🔕' : '🔔'}</button>
+              <button onclick="deleteNotif(${n.id})" class="btn-icon" style="background:#e74c3c;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;font-size:.7rem;cursor:pointer" title="Eliminar">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      notifList.innerHTML = '<p style="color:#e74c3c;font-size:.85rem">Error al cargar notificaciones</p>';
+    }
+  }
+
+  notifForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const titulo = document.getElementById('notifTitulo').value.trim();
+    const cuerpo = document.getElementById('notifCuerpo').value.trim();
+    const link = document.getElementById('notifLink').value.trim();
+
+    if (!titulo || !cuerpo) {
+      showMsg(notifMsg, 'Título y mensaje son requeridos', false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/notificaciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo, cuerpo, link: link || null })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showMsg(notifMsg, '¡Notificación enviada!', true);
+        notifForm.reset();
+        loadNotificaciones();
+      } else {
+        showMsg(notifMsg, data.error || 'Error al enviar', false);
+      }
+    } catch (err) {
+      showMsg(notifMsg, 'Error de conexión', false);
+    }
+  });
+
+  // Global functions for inline onclick
+  window.toggleNotif = async (id) => {
+    try {
+      await fetch(`/api/admin/notificaciones/${id}/toggle`, { method: 'PATCH' });
+      loadNotificaciones();
+    } catch (e) { /* ignore */ }
+  };
+
+  window.deleteNotif = async (id) => {
+    if (!confirm('¿Eliminar esta notificación?')) return;
+    try {
+      await fetch(`/api/admin/notificaciones/${id}`, { method: 'DELETE' });
+      loadNotificaciones();
+    } catch (e) { /* ignore */ }
+  };
 
   // Load dashboard on init
   loadDashboard();

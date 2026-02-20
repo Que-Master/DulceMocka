@@ -5,6 +5,36 @@ function fmt(v){ return currency.format(Number(v)||0); }
 function getCart(){ try{return JSON.parse(localStorage.getItem('cart'))||[];}catch{return [];} }
 function saveCart(c){ localStorage.setItem('cart', JSON.stringify(c)); }
 
+// ═══ Cargar estado del local ═══
+async function loadEstadoLocal() {
+  try {
+    const banner = document.getElementById('localStatusBanner');
+    const text = document.getElementById('localStatusText');
+    if (!banner || !text) return;
+
+    const res = await fetch('/api/estado-local');
+    const data = await res.json();
+    
+    if (data.abierto) {
+      banner.className = 'local-status-banner abierto';
+      text.innerHTML = '🟢 <strong>ABIERTO</strong> — Horario: ' + data.horaApertura + ' - ' + data.horaCierre;
+    } else {
+      banner.className = 'local-status-banner cerrado';
+      let msg = '🔴 <strong>CERRADO</strong>';
+      if (data.mensaje) {
+        msg += ' — ' + data.mensaje;
+      }
+      msg += ' (Horario: ' + data.horaApertura + ' - ' + data.horaCierre + ')';
+      text.innerHTML = msg;
+    }
+    
+    banner.style.display = 'block';
+  } catch (e) {
+    console.error('Error cargando estado del local', e);
+  }
+}
+loadEstadoLocal();
+
 function renderCart(){
   const cart = getCart();
   const $body = document.getElementById('cartBody');
@@ -71,6 +101,7 @@ function onQtyBtn(e){
   else q = q+1;
   cart[idx].cantidad = q;
   saveCart(cart);
+  validateCouponAfterCartChange();
   renderCart();
 }
 
@@ -81,6 +112,7 @@ function onQtyInput(e){
   q = Math.max(1, q);
   cart[idx].cantidad = q;
   saveCart(cart);
+  validateCouponAfterCartChange();
   renderCart();
 }
 
@@ -89,7 +121,38 @@ function onRemove(e){
   const cart = getCart();
   cart.splice(idx,1);
   saveCart(cart);
+  validateCouponAfterCartChange();
   renderCart();
+}
+
+// Validar que el cupón siga siendo válido después de cambios en el carrito
+function validateCouponAfterCartChange() {
+  if (!appliedCoupon) return;
+  
+  const cart = getCart();
+  let subtotal = 0;
+  cart.forEach(it => { subtotal += (Number(it.precio)||0) * (Number(it.cantidad)||1); });
+  
+  const minimo = Number(appliedCoupon.minimoCompra) || 0;
+  
+  if (minimo > 0 && subtotal < minimo) {
+    // El subtotal ya no cumple con el mínimo de compra
+    const msg = document.getElementById('couponMsg');
+    msg.textContent = '⚠️ Cupón removido: el subtotal ya no cumple con el mínimo de $' + fmt(minimo).replace('$', '');
+    msg.className = 'coupon-msg error';
+    
+    appliedCoupon = null;
+    currentDiscount = 0;
+    localStorage.removeItem('appliedCoupon');
+    hideAppliedCoupon();
+  } else if (appliedCoupon) {
+    // Recalcular descuento con el nuevo subtotal
+    const porciento = Number(appliedCoupon.porcentajeDescuento) || 0;
+    const limite = Number(appliedCoupon.limiteDescuento) || Infinity;
+    let descuento = Math.floor(subtotal * porciento / 100);
+    if (limite && descuento > limite) descuento = limite;
+    currentDiscount = descuento;
+  }
 }
 
 document.getElementById('checkoutBtn').addEventListener('click', ()=>{

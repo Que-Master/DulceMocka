@@ -249,6 +249,30 @@ CREATE TABLE IF NOT EXISTS slider (
   creadoEn DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Configuración del local (horarios y estado)
+CREATE TABLE IF NOT EXISTS configuracion_local (
+  id VARCHAR(36) NOT NULL PRIMARY KEY DEFAULT 'config',
+  horaApertura TIME DEFAULT '08:00:00',
+  horaCierre TIME DEFAULT '20:00:00',
+  abierto TINYINT(1) DEFAULT 1,
+  forzarEstado TINYINT(1) DEFAULT 0,
+  mensaje VARCHAR(255) DEFAULT NULL,
+  actualizadoEn DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Insertar configuración por defecto
+INSERT IGNORE INTO configuracion_local (id) VALUES ('config');
+
+-- Notificaciones globales (broadcast del admin)
+CREATE TABLE IF NOT EXISTS notificacion_global (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  titulo VARCHAR(200) NOT NULL,
+  cuerpo TEXT NOT NULL,
+  link VARCHAR(500) DEFAULT NULL,
+  activa TINYINT(1) DEFAULT 1,
+  creadoEn DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================
 -- ÍNDICES ADICIONALES
 -- ============================================

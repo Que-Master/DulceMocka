@@ -134,10 +134,28 @@ const AdminController = {
 
       await q(`UPDATE pedido SET estadoId=?, actualizadoEn=NOW()${extra} WHERE id=?`, [estadoId, req.params.id]);
 
-      // Award Mocka Points when order is delivered or ready
+      // Sincronizar estado con canje asociado (si es un pedido de canje MP)
+      const [canjeAsociado] = await q('SELECT id, estado, costoPoints, usuarioId FROM canjeomockapoints WHERE pedidoId = ?', [req.params.id]);
+      if (canjeAsociado) {
+        const estadoNuevo = estado ? estado.nombre : null;
+        let nuevoEstadoCanje = null;
+        if (estadoNuevo === 'Entregado') nuevoEstadoCanje = 'entregado';
+        else if (estadoNuevo === 'Cancelado') nuevoEstadoCanje = 'cancelado';
+        else nuevoEstadoCanje = 'pendiente';
+
+        if (nuevoEstadoCanje !== canjeAsociado.estado) {
+          // Si se cancela y antes no estaba cancelado, devolver puntos
+          if (nuevoEstadoCanje === 'cancelado' && canjeAsociado.estado !== 'cancelado') {
+            await q('UPDATE usuario SET mockaPoints = mockaPoints + ? WHERE id = ?', [canjeAsociado.costoPoints, canjeAsociado.usuarioId]);
+          }
+          const extraCanje = nuevoEstadoCanje === 'entregado' ? ', entregadoEn=NOW()' : '';
+          await q('UPDATE canjeomockapoints SET estado=?' + extraCanje + ' WHERE id=?', [nuevoEstadoCanje, canjeAsociado.id]);
+        }
+      }
+
+      // Award Mocka Points only when order is delivered
       if (pedido && pedido.usuarioId && estado &&
-          (estado.nombre === 'Entregado' || estado.nombre === 'Listo para retirar') &&
-          pedido.estadoAnterior !== 'Entregado' && pedido.estadoAnterior !== 'Listo para retirar') {
+          estado.nombre === 'Entregado' && pedido.estadoAnterior !== 'Entregado') {
         const total = Number(pedido.total) || 0;
         const pointsEarned = Math.floor(total / 5000) * 50;
         if (pointsEarned > 0) {
@@ -169,9 +187,8 @@ const AdminController = {
           titulo = icono + ' Pedido #' + pedido.numeroPedido + ' — ' + nuevoEstado;
           mensaje = 'Tu pedido #' + pedido.numeroPedido + ' cambió de "' + (pedido.estadoAnterior || 'Sin estado') + '" a "' + nuevoEstado + '".';
 
-          // Add points info to notification
-          if ((nuevoEstado === 'Entregado' || nuevoEstado === 'Listo para retirar') &&
-              pedido.estadoAnterior !== 'Entregado' && pedido.estadoAnterior !== 'Listo para retirar') {
+          // Add points info to notification only when delivered
+          if (nuevoEstado === 'Entregado' && pedido.estadoAnterior !== 'Entregado') {
             const total = Number(pedido.total) || 0;
             const pointsEarned = Math.floor(total / 5000) * 50;
             if (pointsEarned > 0) {
@@ -517,8 +534,8 @@ const AdminController = {
       const rows = await q(`
         SELECT c.*, u.nombre AS usuario, u.correo, p.nombre AS producto
         FROM canjeomockapoints c
-        JOIN usuario u ON u.id = c.usuarioId
-        JOIN producto p ON p.id = c.productoId
+        JOIN usuario u ON u.id COLLATE utf8mb4_unicode_ci = c.usuarioId COLLATE utf8mb4_unicode_ci
+        JOIN producto p ON p.id COLLATE utf8mb4_unicode_ci = c.productoId COLLATE utf8mb4_unicode_ci
         ORDER BY c.creadoEn DESC`);
       res.json({ canjes: rows });
     } catch (err) {
@@ -543,6 +560,20 @@ const AdminController = {
 
       const extra = estado === 'entregado' ? ', entregadoEn=NOW()' : '';
       await q('UPDATE canjeomockapoints SET estado=?' + extra + ' WHERE id=?', [estado, req.params.id]);
+
+      // Sincronizar estado con el pedido asociado
+      if (canje.pedidoId) {
+        const estadoMap = {
+          'pendiente': 'Pendiente',
+          'entregado': 'Entregado',
+          'cancelado': 'Cancelado'
+        };
+        const [estadoPedido] = await q('SELECT id FROM estadopedido WHERE nombre = ?', [estadoMap[estado]]);
+        if (estadoPedido) {
+          const extraPedido = estado === 'entregado' ? ', entregadoEn=NOW()' : '';
+          await q('UPDATE pedido SET estadoId=?, actualizadoEn=NOW()' + extraPedido + ' WHERE id=?', [estadoPedido.id, canje.pedidoId]);
+        }
+      }
 
       // Send notification
       if (canje.usuarioId) {
@@ -600,6 +631,110 @@ const AdminController = {
   async deleteSlide(req, res) {
     try {
       await q('DELETE FROM slider WHERE id=?', [req.params.id]);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  /* ══════════════════════════════════════════
+     CONFIGURACIÓN DEL LOCAL (HORARIOS)
+     ══════════════════════════════════════════ */
+  async getConfiguracionLocal(req, res) {
+    try {
+      const [config] = await q('SELECT * FROM configuracion_local WHERE id = "config"');
+      if (!config) {
+        return res.json({
+          horaApertura: '08:00',
+          horaCierre: '20:00',
+          abierto: true,
+          forzarEstado: false,
+          mensaje: null
+        });
+      }
+      res.json({
+        horaApertura: config.horaApertura ? config.horaApertura.substring(0, 5) : '08:00',
+        horaCierre: config.horaCierre ? config.horaCierre.substring(0, 5) : '20:00',
+        abierto: config.abierto === 1,
+        forzarEstado: config.forzarEstado === 1,
+        mensaje: config.mensaje
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async updateConfiguracionLocal(req, res) {
+    try {
+      const { horaApertura, horaCierre, abierto, forzarEstado, mensaje } = req.body;
+      await q(`
+        UPDATE configuracion_local SET
+          horaApertura = ?,
+          horaCierre = ?,
+          abierto = ?,
+          forzarEstado = ?,
+          mensaje = ?
+        WHERE id = "config"
+      `, [horaApertura || '08:00', horaCierre || '20:00', abierto ? 1 : 0, forzarEstado ? 1 : 0, mensaje || null]);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async toggleLocalAbierto(req, res) {
+    try {
+      const { abierto, mensaje } = req.body;
+      await q('UPDATE configuracion_local SET abierto = ?, forzarEstado = 1, mensaje = ? WHERE id = "config"', 
+        [abierto ? 1 : 0, mensaje || null]);
+      res.json({ ok: true, abierto: !!abierto });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // NOTIFICACIONES GLOBALES
+  // ═══════════════════════════════════════════════════════════
+  async getNotificaciones(req, res) {
+    try {
+      const notifs = await q('SELECT * FROM notificacion_global ORDER BY creadoEn DESC');
+      res.json(notifs);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async createNotificacion(req, res) {
+    try {
+      const { titulo, cuerpo, link } = req.body;
+      if (!titulo || !cuerpo) {
+        return res.status(400).json({ error: 'Título y cuerpo son requeridos' });
+      }
+      const result = await q(
+        'INSERT INTO notificacion_global (titulo, cuerpo, link) VALUES (?, ?, ?)',
+        [titulo.trim(), cuerpo.trim(), link ? link.trim() : null]
+      );
+      res.json({ ok: true, id: result.insertId });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async deleteNotificacion(req, res) {
+    try {
+      const { id } = req.params;
+      await q('DELETE FROM notificacion_global WHERE id = ?', [id]);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async toggleNotificacion(req, res) {
+    try {
+      const { id } = req.params;
+      await q('UPDATE notificacion_global SET activa = NOT activa WHERE id = ?', [id]);
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });

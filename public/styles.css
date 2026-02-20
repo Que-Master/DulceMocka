@@ -8,6 +8,24 @@
 
 .actions{display:flex;gap:.6rem;align-items:center}
 .actions .icon{background:transparent;border:none;color:#fff}
+
+/* ── Notificaciones Dropdown ── */
+.notif-bell-wrap{position:relative}
+.notif-bell{background:transparent;border:none;color:#fff;font-size:1.2rem;cursor:pointer;padding:.3rem}
+.notif-badge{position:absolute;top:-2px;right:-4px;background:#e74c3c;color:#fff;font-size:.65rem;padding:.1rem .35rem;border-radius:10px;font-weight:700;min-width:16px;text-align:center}
+.notif-dropdown{display:none;position:absolute;top:100%;right:0;width:320px;max-height:400px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.18);z-index:1000;margin-top:.5rem;overflow:hidden}
+.notif-dropdown.open{display:block}
+.notif-dropdown-header{padding:.75rem 1rem;background:linear-gradient(90deg,#7b61ff,#9d7bff);color:#fff;font-size:.9rem}
+.notif-dropdown-list{max-height:340px;overflow-y:auto}
+.notif-item-card{padding:.75rem 1rem;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .2s}
+.notif-item-card:hover{background:#f8f5ff}
+.notif-item-card:last-child{border-bottom:none}
+.notif-item-card h4{margin:0 0 .25rem;font-size:.9rem;color:#333}
+.notif-item-card p{margin:0;font-size:.8rem;color:#666;line-height:1.4}
+.notif-item-card .notif-time{font-size:.7rem;color:#999;margin-top:.35rem}
+.notif-item-card.read{opacity:.6;background:#f9f9f9}
+.notif-item-card.read h4{color:#888}
+.notif-empty{color:#999;font-size:.85rem;text-align:center;padding:2rem 1rem}
 .btn{background:var(--accent);color:#fff;padding:.5rem .9rem;border-radius:6px;border:none;cursor:pointer;text-decoration:none}
 .btn.outline{background:transparent;border:2px solid var(--accent);color:var(--accent)}
 .btn.small{padding:.35rem .6rem;font-size:.9rem}
@@ -230,3 +248,9 @@
 .mp-pill:hover,.mp-pill.active{background:linear-gradient(135deg,#ffd54f,#ffb300)!important;color:#4e2a00!important}
 .mp-nav-link{font-size:1.3rem;text-decoration:none;transition:transform .2s}
 .mp-nav-link:hover{transform:scale(1.2)}
+
+/* ── Estado del Local Banner ── */
+.local-status-banner{padding:.6rem 0;text-align:center;font-weight:600;font-size:.95rem}
+.local-status-banner.abierto{background:linear-gradient(90deg,#27ae60,#2ecc71);color:#fff}
+.local-status-banner.cerrado{background:linear-gradient(90deg,#c0392b,#e74c3c);color:#fff}
+.local-status-banner .container{display:flex;align-items:center;justify-content:center;gap:.5rem}

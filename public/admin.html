@@ -41,6 +41,11 @@
       <header class="admin-topbar">
         <button class="menu-toggle" id="menuToggle">☰</button>
         <h2 id="sectionTitle">Dashboard</h2>
+        <div class="topbar-actions">
+          <button class="topbar-btn" id="btnNotificaciones" title="Enviar notificación">
+            🔔 <span class="topbar-btn-text">Notificaciones</span>
+          </button>
+        </div>
         <div class="topbar-user">
           <span id="adminName">Admin</span>
           <div class="admin-avatar" id="adminAvatar">A</div>
@@ -56,7 +61,37 @@
             <div class="card"><h3>Pedidos por estado</h3><div id="ordersByStatus"></div></div>
             <div class="card"><h3>Top 5 productos</h3><div id="topProducts"></div></div>
           </div>
-          <div class="card"><h3>Ventas últimos 7 días</h3><div id="salesWeek"></div></div>
+          <div class="dash-grid">
+            <div class="card"><h3>Ventas últimos 7 días</h3><div id="salesWeek"></div></div>
+            <!-- Configuración de Horario -->
+            <div class="card" id="horarioCard">
+              <h3>🕐 Estado del Local</h3>
+              <div id="localEstado" style="margin:.75rem 0">
+                <span class="badge badge-success" id="badgeAbierto" style="display:none;font-size:1rem;padding:.5rem 1rem">🟢 ABIERTO</span>
+                <span class="badge badge-danger" id="badgeCerrado" style="display:none;font-size:1rem;padding:.5rem 1rem">🔴 CERRADO</span>
+              </div>
+              <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+                <button class="btn" id="btnAbrirLocal" style="background:#27ae60">🔓 Abrir Local</button>
+                <button class="btn" id="btnCerrarLocal" style="background:#e74c3c">🔒 Cerrar Local</button>
+              </div>
+              <div style="border-top:1px solid #eee;padding-top:1rem">
+                <h4 style="margin:0 0 .75rem;font-size:.95rem">⏰ Horario Programado</h4>
+                <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+                  <div>
+                    <label style="font-size:.8rem;color:#666">Apertura:</label><br>
+                    <input type="time" id="horaApertura" value="08:00" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+                  </div>
+                  <div>
+                    <label style="font-size:.8rem;color:#666">Cierre:</label><br>
+                    <input type="time" id="horaCierre" value="20:00" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+                  </div>
+                  <button class="btn small outline" id="btnGuardarHorario">💾 Guardar</button>
+                  <button class="btn small outline" id="btnUsarHorario">🔄 Usar horario automático</button>
+                </div>
+                <p id="horarioInfo" style="font-size:.8rem;color:#888;margin-top:.5rem"></p>
+              </div>
+            </div>
+          </div>
           <div class="card"><h3>Pedidos recientes</h3><div id="recentOrders"></div></div>
         </section>
 
@@ -64,6 +99,31 @@
         <section class="section" id="sec-orders">
           <div class="section-header">
             <h3>Gestión de Pedidos</h3>
+            <div class="filter-tabs" id="ordersFilter">
+              <button class="filter-tab active" data-filter="proceso">📋 En proceso</button>
+              <button class="filter-tab" data-filter="finalizados">✅ Finalizados</button>
+              <button class="filter-tab" data-filter="todos">📦 Todos</button>
+            </div>
+          </div>
+          <div class="filters-row" style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">            <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:200px;max-width:300px">
+              <input type="text" id="orderSearch" placeholder="🔍 Buscar por # pedido o cliente..." style="width:100%;padding:.5rem .75rem;border:1px solid #ddd;border-radius:8px;font-size:.9rem">
+            </div>            <div style="display:flex;align-items:center;gap:.5rem">
+              <label style="font-size:.85rem;color:#666">� Entrega:</label>
+              <select id="orderDeliveryFilter" style="padding:.4rem .6rem;border:1px solid #ddd;border-radius:8px;font-size:.9rem">
+                <option value="todos">Todos</option>
+                <option value="despacho">🚚 Despacho</option>
+                <option value="retiro">🏪 Retiro en tienda</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <label style="font-size:.85rem;color:#666">📅 Desde:</label>
+              <input type="date" id="orderDateFrom" style="padding:.4rem .6rem;border:1px solid #ddd;border-radius:8px;font-size:.9rem">
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <label style="font-size:.85rem;color:#666">Hasta:</label>
+              <input type="date" id="orderDateTo" style="padding:.4rem .6rem;border:1px solid #ddd;border-radius:8px;font-size:.9rem">
+            </div>
+            <button class="btn small outline" id="btnClearFilters" style="font-size:.8rem">❌ Limpiar filtros</button>
           </div>
           <div class="table-wrap"><table class="admin-table" id="ordersTable"><thead><tr>
             <th>#</th><th>Cliente</th><th>Total</th><th>Entrega</th><th>Estado</th><th>Fecha</th><th>Acciones</th>
@@ -316,6 +376,45 @@
 
       </div>
     </main>
+  </div>
+
+  <!-- Modal Notificaciones -->
+  <div class="modal-backdrop" id="notifModalBackdrop" style="display:none">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-header">
+        <h3>🔔 Gestión de Notificaciones</h3>
+        <button class="modal-close" id="closeNotifModal">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- Formulario nueva notificación -->
+        <div class="notif-form-wrap">
+          <h4 style="margin:0 0 .75rem;font-size:.95rem">Enviar nueva notificación</h4>
+          <form id="notifForm">
+            <div class="form-group">
+              <label>Título *</label>
+              <input type="text" id="notifTitulo" required maxlength="200" placeholder="Ej: ¡Nuevo producto disponible!">
+            </div>
+            <div class="form-group">
+              <label>Mensaje *</label>
+              <textarea id="notifCuerpo" required rows="3" placeholder="Escribe el contenido de la notificación..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Link (opcional)</label>
+              <input type="text" id="notifLink" placeholder="Ej: /product.html?id=5 o https://...">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn">📤 Enviar Notificación</button>
+            </div>
+            <span class="form-msg" id="notifMsg"></span>
+          </form>
+        </div>
+        <!-- Lista de notificaciones -->
+        <div class="notif-list-wrap" style="margin-top:1.5rem;border-top:1px solid #eee;padding-top:1rem">
+          <h4 style="margin:0 0 .75rem;font-size:.95rem">Historial de notificaciones</h4>
+          <div id="notifList" style="max-height:300px;overflow-y:auto"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/admin.js"></script>
