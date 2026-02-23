@@ -31,10 +31,12 @@ router.post('/login', (req, res) => {
 
       req.login(user, (loginErr) => {
         if (loginErr) return res.status(500).json({ error: 'Error al iniciar sesión' });
-        // Check if admin
+        // Check role name and expose isAdmin flag
         db.query("SELECT r.nombre AS rol FROM rol r WHERE r.id = ?", [user.rolId], (errR, rowsR) => {
           const rol = (rowsR && rowsR[0]) ? rowsR[0].rol : null;
-          res.json({ ok: true, user: { id: user.id, nombre: user.nombre, email: user.correo, rol } });
+          const rolLower = rol ? String(rol).toLowerCase() : '';
+          const isAdmin = rolLower === 'admin' || rolLower === 'administrador';
+          res.json({ ok: true, user: { id: user.id, nombre: user.nombre, email: user.correo, rol, isAdmin } });
         });
       });
     });
@@ -76,7 +78,9 @@ router.get('/me', (req, res) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
     db.query("SELECT r.nombre AS rol FROM rol r WHERE r.id = ?", [req.user.rolId], (errR, rowsR) => {
       const rol = (rowsR && rowsR[0]) ? rowsR[0].rol : null;
-      res.json({ user: { id: req.user.id, nombre: req.user.nombre, email: req.user.correo || req.user.email, rol } });
+      const rolLower = rol ? String(rol).toLowerCase() : '';
+      const isAdmin = rolLower === 'admin' || rolLower === 'administrador';
+      res.json({ user: { id: req.user.id, nombre: req.user.nombre, email: req.user.correo || req.user.email, rol, isAdmin } });
     });
     return;
   }

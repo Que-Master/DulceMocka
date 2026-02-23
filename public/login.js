@@ -23,7 +23,9 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     if(!res.ok) return showMsg(data.error || 'Error al iniciar sesión', 'error');
 
     showMsg('Bienvenido ' + (data.user.nombre || ''), 'success');
-    const dest = data.user.rol === 'admin' ? '/admin.html' : '/';
+    const isAdminFlag = data.user && data.user.isAdmin === true;
+    const userRole = (data.user && data.user.rol) ? String(data.user.rol).toLowerCase() : '';
+    const dest = isAdminFlag || userRole === 'admin' ? '/admin.html' : '/';
     setTimeout(() => { window.location.href = dest; }, 800);
   }catch(err){
     showMsg('Error de conexión', 'error');

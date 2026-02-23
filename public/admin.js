@@ -6,14 +6,586 @@
   if (!authData.user) { window.location.href = '/login.html'; return; }
 
   // Check admin role
-  try {
-    const dashRes = await fetch('/api/admin/dashboard');
-    if (dashRes.status === 403 || dashRes.status === 401) {
-      alert('Acceso denegado: No tienes permisos de administrador');
-      window.location.href = '/';
+  const dashRes = await fetch('/api/admin/dashboard');
+  if (dashRes.status === 403 || dashRes.status === 401) {
+    alert('Acceso denegado: No tienes permisos de administrador');
+    window.location.href = '/';
+    return;
+  }
+
+  // ═══ VENTAS EN LOCAL - NUEVA INTERFAZ VISUAL ═══
+  let ventasProductosCache = [];
+  let ventaCart = [];
+  let ventasSearchTerm = '';
+  let ventasSectoresCache = [];
+  let ventaDespachoData = null; // Datos de despacho si aplica
+
+  async function loadVentas() {
+    try {
+      // Cargar productos
+      const res = await fetch('/api/productos');
+      const prods = await res.json();
+      ventasProductosCache = prods || [];
+      renderVentasProductos();
+      renderVentaCartVisual();
+
+      // Cargar sectores para despacho
+      try {
+        const sectoresRes = await fetch('/api/admin/sectores');
+        const sectoresData = await sectoresRes.json();
+        ventasSectoresCache = sectoresData.sectores || sectoresData || [];
+      } catch (e) { ventasSectoresCache = []; }
+
+      // Search handler
+      const searchInput = document.getElementById('ventaSearchInput');
+      if (searchInput) {
+        searchInput.value = ventasSearchTerm;
+        searchInput.oninput = () => {
+          ventasSearchTerm = searchInput.value.toLowerCase();
+          renderVentasProductos();
+        };
+      }
+
+      // Toggle tipo de entrega
+      document.querySelectorAll('.ventas-delivery-btn').forEach(btn => {
+        btn.onclick = () => {
+          const tipo = btn.dataset.tipo;
+          document.querySelectorAll('.ventas-delivery-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('ventaTipoEntrega').value = tipo;
+          
+          // Si es despacho, abrir modal
+          if (tipo === 'despacho') {
+            openDespachoModal();
+          } else {
+            ventaDespachoData = null;
+          }
+        };
+      });
+
+      // Clear button
+      document.getElementById('ventaClearBtn').onclick = () => { 
+        ventaCart = []; 
+        ventaDespachoData = null;
+        // Reset tipo entrega a retiro
+        document.querySelectorAll('.ventas-delivery-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.ventas-delivery-btn[data-tipo="retiro"]')?.classList.add('active');
+        document.getElementById('ventaTipoEntrega').value = 'retiro';
+        renderVentaCartVisual(); 
+      };
+      document.getElementById('ventaCreateBtn').onclick = createVenta;
+      
+      // Configurar modal de despacho
+      setupDespachoModal();
+      
+      // Configurar modal de personalización de producto
+      setupVentaProductoModal();
+    } catch (e) { console.error('Error loading ventas products', e); }
+  }
+
+  function openDespachoModal() {
+    const modal = document.getElementById('despachoModal');
+    const sectorSelect = document.getElementById('despachoSector');
+    
+    // Cargar sectores
+    sectorSelect.innerHTML = '<option value="">-- Seleccionar sector --</option>';
+    ventasSectoresCache.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.nombre + ' — ' + fmt(s.precioEnvio || 0);
+      opt.dataset.costo = s.precioEnvio || 0;
+      sectorSelect.appendChild(opt);
+    });
+    
+    // Reset campos
+    document.getElementById('despachoTelefono').value = '';
+    document.getElementById('despachoDireccion').value = '';
+    document.getElementById('despachoReferencia').value = '';
+    document.getElementById('despachoCosto').textContent = 'Por definir';
+    sectorSelect.selectedIndex = 0;
+    
+    modal.classList.add('open');
+  }
+
+  function setupDespachoModal() {
+    const modal = document.getElementById('despachoModal');
+    const sectorSelect = document.getElementById('despachoSector');
+    const costoEl = document.getElementById('despachoCosto');
+    
+    // Actualizar costo al cambiar sector
+    sectorSelect.onchange = () => {
+      const selected = sectorSelect.options[sectorSelect.selectedIndex];
+      if (selected && selected.value) {
+        const costo = Number(selected.dataset.costo) || 0;
+        costoEl.textContent = fmt(costo);
+      } else {
+        costoEl.textContent = 'Por definir';
+      }
+    };
+    
+    // Botón confirmar
+    document.getElementById('despachoConfirmBtn').onclick = () => {
+      const telefono = document.getElementById('despachoTelefono').value.trim();
+      const direccion = document.getElementById('despachoDireccion').value.trim();
+      const sectorId = sectorSelect.value;
+      const referencia = document.getElementById('despachoReferencia').value.trim();
+      
+      if (!telefono) return alert('Ingresa el teléfono del cliente');
+      if (!direccion) return alert('Ingresa la dirección de entrega');
+      if (!sectorId) return alert('Selecciona un sector');
+      
+      const selectedOption = sectorSelect.options[sectorSelect.selectedIndex];
+      const costoEnvio = Number(selectedOption.dataset.costo) || 0;
+      const sectorNombre = selectedOption.textContent.split(' — ')[0];
+      
+      ventaDespachoData = {
+        telefono,
+        direccion,
+        sectorId,
+        sectorNombre,
+        referencia,
+        costoEnvio
+      };
+      
+      modal.classList.remove('open');
+      renderVentaCartVisual(); // Actualizar para mostrar costo de envío
+    };
+    
+    // Cerrar modal (cancelar = volver a retiro)
+    modal.querySelectorAll('[data-close="despachoModal"]').forEach(btn => {
+      btn.onclick = () => {
+        modal.classList.remove('open');
+        // Volver a retiro
+        document.querySelectorAll('.ventas-delivery-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.ventas-delivery-btn[data-tipo="retiro"]')?.classList.add('active');
+        document.getElementById('ventaTipoEntrega').value = 'retiro';
+        ventaDespachoData = null;
+      };
+    });
+  }
+
+  function renderVentasProductos() {
+    const container = document.getElementById('ventasProductosList');
+    if (!container) return;
+    
+    const filtered = ventasProductosCache.filter(p => 
+      !ventasSearchTerm || p.nombre.toLowerCase().includes(ventasSearchTerm)
+    );
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="ventas-empty-cart"><span class="empty-icon">🔍</span><p>No se encontraron productos</p></div>';
       return;
     }
-  } catch (e) { window.location.href = '/'; return; }
+
+    container.innerHTML = filtered.map(p => {
+      // Preparar descripción corta
+      let desc = '';
+      if (p.ingredientes && p.ingredientes.length > 0) {
+        desc = p.ingredientes.map(i => i.nombre).join(', ');
+      } else if (p.descripcion) {
+        desc = p.descripcion;
+      }
+      // Truncar si es muy largo
+      if (desc.length > 60) desc = desc.substring(0, 57) + '...';
+      
+      return `
+      <div class="ventas-producto-card" data-id="${p.id}">
+        <button class="ventas-producto-add" title="Agregar">+</button>
+        <div class="ventas-producto-img">${p.imagen ? `<img src="${p.imagen}" alt="${esc(p.nombre)}">` : '🧋'}</div>
+        <div class="ventas-producto-nombre">${esc(p.nombre)}</div>
+        ${desc ? `<div class="ventas-producto-desc">${esc(desc)}</div>` : ''}
+        <div class="ventas-producto-precio">${fmt(p.precio)}</div>
+      </div>
+    `;
+    }).join('');
+
+    // Add click handlers
+    container.querySelectorAll('.ventas-producto-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const pid = card.dataset.id;
+        openVentaProductoModal(pid);
+      });
+    });
+  }
+
+  // Variables para el modal de personalización
+  let ventaModalProducto = null;
+  let ventaModalCantidad = 1;
+  let ventaModalIngredientes = {}; // { id: true/false }
+
+  function openVentaProductoModal(productId) {
+    fetch(`/api/producto/${encodeURIComponent(productId)}`)
+      .then(res => res.json())
+      .then(prod => {
+        if (!prod) return;
+        console.log('[DEBUG admin venta modal]', prod);
+        ventaModalProducto = prod;
+        ventaModalCantidad = 1;
+        ventaModalIngredientes = {};
+        (prod.ingredientes || []).forEach(i => {
+          ventaModalIngredientes[i.id] = !!i.incluidoPorDefecto;
+        });
+        document.getElementById('ventaProductoNombre').textContent = prod.nombre;
+        document.getElementById('ventaProductoDesc').textContent = prod.descripcion || '';
+        document.getElementById('ventaProductoPrecio').textContent = fmt(prod.precio);
+        document.getElementById('ventaCantidad').value = 1;
+        document.getElementById('ventaProductoNotas').value = '';
+        // Imagen
+        const imgEl = document.getElementById('ventaProductoImg');
+        if (prod.imagen) {
+          imgEl.innerHTML = `<img src="${prod.imagen}" alt="${esc(prod.nombre)}">`;
+        } else {
+          imgEl.innerHTML = '🧋';
+        }
+
+        // Ingredientes
+        const ingSection = document.getElementById('ventaIngredientesSection');
+        const ingList = document.getElementById('ventaIngredientesList');
+        if (prod.ingredientes && prod.ingredientes.length > 0) {
+          ingSection.style.display = 'block';
+          ingList.innerHTML = prod.ingredientes.map(ing => {
+            const canToggle = !!ing.sePuedeQuitar;
+            const isRequired = !canToggle && !!ing.incluidoPorDefecto;
+            const checked = ventaModalIngredientes[ing.id] ? 'checked' : '';
+            const disabled = !canToggle ? 'disabled' : '';
+            return `
+              <label class="venta-ingrediente-item ${isRequired ? 'required' : ''}">
+                <input type="checkbox" data-ing-id="${ing.id}" ${checked} ${disabled}>
+                <span class="venta-ing-switch"></span>
+                <span class="venta-ing-nombre">${esc(ing.nombre)}</span>
+                ${isRequired ? '<span class="venta-ing-badge">Incluido</span>' : ''}
+              </label>
+            `;
+          }).join('');
+          // Event listeners para ingredientes
+          ingList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+              const ingId = cb.dataset.ingId;
+              const ing = prod.ingredientes.find(i => String(i.id) === String(ingId));
+              if (ing && !ing.sePuedeQuitar) {
+                cb.checked = !!ing.incluidoPorDefecto;
+                return;
+              }
+              ventaModalIngredientes[ingId] = cb.checked;
+            });
+          });
+        } else {
+          ingSection.style.display = 'none';
+          ingList.innerHTML = '';
+        }
+
+        // Actualizar subtotal
+        updateVentaModalSubtotal();
+
+        // Mostrar modal
+        document.getElementById('ventaProductoModal').classList.add('open');
+      });
+  }
+
+  function updateVentaModalSubtotal() {
+    if (!ventaModalProducto) return;
+    const subtotal = (Number(ventaModalProducto.precio) || 0) * ventaModalCantidad;
+    document.getElementById('ventaModalSubtotal').textContent = fmt(subtotal);
+  }
+
+  function setupVentaProductoModal() {
+    // Cantidad
+    const qtyInput = document.getElementById('ventaCantidad');
+    document.getElementById('ventaQtyMinus')?.addEventListener('click', () => {
+      ventaModalCantidad = Math.max(1, ventaModalCantidad - 1);
+      qtyInput.value = ventaModalCantidad;
+      updateVentaModalSubtotal();
+    });
+    document.getElementById('ventaQtyPlus')?.addEventListener('click', () => {
+      ventaModalCantidad += 1;
+      qtyInput.value = ventaModalCantidad;
+      updateVentaModalSubtotal();
+    });
+    qtyInput?.addEventListener('change', () => {
+      ventaModalCantidad = Math.max(1, parseInt(qtyInput.value) || 1);
+      qtyInput.value = ventaModalCantidad;
+      updateVentaModalSubtotal();
+    });
+
+    // Confirmar
+    document.getElementById('ventaProductoConfirmBtn')?.addEventListener('click', () => {
+      if (!ventaModalProducto) return;
+
+      // Obtener ingredientes quitados
+      const ingredientesQuitados = (ventaModalProducto.ingredientes || [])
+        .filter(i => !ventaModalIngredientes[i.id])
+        .map(i => ({ id: i.id, nombre: i.nombre }));
+
+      const notas = document.getElementById('ventaProductoNotas')?.value.trim() || '';
+      
+      // Crear item con personalización
+      const itemKey = ventaModalProducto.id + '_' + JSON.stringify(ingredientesQuitados.map(i=>i.id).sort()) + '_' + notas;
+      
+      const existing = ventaCart.find(it => it.itemKey === itemKey);
+      if (existing) {
+        existing.cantidad += ventaModalCantidad;
+      } else {
+        ventaCart.push({ 
+          id: ventaModalProducto.id,
+          itemKey,
+          nombre: ventaModalProducto.nombre, 
+          precio: Number(ventaModalProducto.precio) || 0, 
+          cantidad: ventaModalCantidad,
+          imagen: ventaModalProducto.imagen || null,
+          ingredientesQuitados,
+          notas
+        });
+      }
+      
+      renderVentaCartVisual();
+      document.getElementById('ventaProductoModal').classList.remove('open');
+      ventaModalProducto = null;
+    });
+
+    // Cerrar modal
+    document.querySelectorAll('[data-close="ventaProductoModal"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('ventaProductoModal').classList.remove('open');
+        ventaModalProducto = null;
+      });
+    });
+  }
+
+  // Llamar setup cuando cargue ventas (ahora se llama desde loadVentas)
+  // setupVentaProductoModal();
+
+  function addProductToVentaCart(productId) {
+    // Esta función ahora simplemente abre el modal
+    openVentaProductoModal(productId);
+  }
+
+  function updateVentaQty(productId, delta) {
+    const item = ventaCart.find(it => String(it.id) === String(productId));
+    if (!item) return;
+    item.cantidad += delta;
+    if (item.cantidad <= 0) {
+      ventaCart = ventaCart.filter(it => String(it.id) !== String(productId));
+    }
+    renderVentaCartVisual();
+  }
+
+  function removeFromVentaCart(productId) {
+    ventaCart = ventaCart.filter(it => String(it.id) !== String(productId));
+    renderVentaCartVisual();
+  }
+
+  function updateVentaQtyByIdx(idx, delta) {
+    if (idx < 0 || idx >= ventaCart.length) return;
+    ventaCart[idx].cantidad += delta;
+    if (ventaCart[idx].cantidad <= 0) {
+      ventaCart.splice(idx, 1);
+    }
+    renderVentaCartVisual();
+  }
+
+  function removeFromVentaCartByIdx(idx) {
+    if (idx < 0 || idx >= ventaCart.length) return;
+    ventaCart.splice(idx, 1);
+    renderVentaCartVisual();
+  }
+
+  function renderVentaCartVisual() {
+    const container = document.getElementById('ventaCartItems');
+    const subtotalEl = document.getElementById('ventaSubtotal');
+    const totalEl = document.getElementById('ventaTotal');
+    const createBtn = document.getElementById('ventaCreateBtn');
+    
+    if (!container) return;
+
+    if (ventaCart.length === 0) {
+      container.innerHTML = `
+        <div class="ventas-empty-cart">
+          <span class="empty-icon">🛒</span>
+          <p>El carrito está vacío</p>
+          <small>Agrega productos desde la lista</small>
+        </div>
+      `;
+      subtotalEl.textContent = fmt(0);
+      if (totalEl) totalEl.textContent = fmt(0);
+      if (createBtn) createBtn.disabled = true;
+      updateVentasEnvioDisplay(0, 0);
+      return;
+    }
+
+    if (createBtn) createBtn.disabled = false;
+
+    let subtotal = 0;
+    container.innerHTML = ventaCart.map((item, idx) => {
+      const itemTotal = (item.precio || 0) * item.cantidad;
+      subtotal += itemTotal;
+      
+      // Mostrar ingredientes quitados si existen
+      let modsHtml = '';
+      if (item.ingredientesQuitados && item.ingredientesQuitados.length > 0) {
+        const nombres = item.ingredientesQuitados.map(i => i.nombre).join(', ');
+        modsHtml = `<div class="ventas-cart-item-mods">Sin: ${esc(nombres)}</div>`;
+      }
+      
+      // Mostrar notas si existen
+      let notasHtml = '';
+      if (item.notas) {
+        notasHtml = `<div class="ventas-cart-item-notas">${esc(item.notas)}</div>`;
+      }
+      
+      return `
+        <div class="ventas-cart-item" data-idx="${idx}">
+          <div class="ventas-cart-item-img">${item.imagen ? `<img src="${item.imagen}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">` : '🧋'}</div>
+          <div class="ventas-cart-item-info">
+            <div class="ventas-cart-item-nombre">${esc(item.nombre)}</div>
+            ${modsHtml}
+            ${notasHtml}
+            <div class="ventas-cart-item-precio">${fmt(item.precio)} c/u</div>
+          </div>
+          <div class="ventas-cart-item-qty">
+            <button class="ventas-qty-btn" data-action="minus">−</button>
+            <span class="ventas-qty-value">${item.cantidad}</span>
+            <button class="ventas-qty-btn" data-action="plus">+</button>
+          </div>
+          <div class="ventas-cart-item-total">${fmt(itemTotal)}</div>
+          <button class="ventas-cart-item-remove" title="Eliminar">✕</button>
+        </div>
+      `;
+    }).join('');
+
+    subtotalEl.textContent = fmt(subtotal);
+    
+    // Calcular envío si hay despacho
+    const costoEnvio = ventaDespachoData ? (ventaDespachoData.costoEnvio || 0) : 0;
+    const total = subtotal + costoEnvio;
+    
+    if (totalEl) totalEl.textContent = fmt(total);
+    updateVentasEnvioDisplay(costoEnvio, total);
+
+    // Attach event handlers
+    container.querySelectorAll('.ventas-cart-item').forEach(item => {
+      const idx = parseInt(item.dataset.idx);
+      item.querySelector('[data-action="minus"]').onclick = (e) => { e.stopPropagation(); updateVentaQtyByIdx(idx, -1); };
+      item.querySelector('[data-action="plus"]').onclick = (e) => { e.stopPropagation(); updateVentaQtyByIdx(idx, 1); };
+      item.querySelector('.ventas-cart-item-remove').onclick = (e) => { e.stopPropagation(); removeFromVentaCartByIdx(idx); };
+    });
+  }
+
+  function updateVentasEnvioDisplay(costoEnvio, total) {
+    // Buscar o crear fila de envío
+    const summaryContainer = document.querySelector('.ventas-summary');
+    if (!summaryContainer) return;
+    
+    let envioRow = summaryContainer.querySelector('.ventas-envio-row');
+    
+    if (costoEnvio > 0) {
+      if (!envioRow) {
+        envioRow = document.createElement('div');
+        envioRow.className = 'ventas-summary-row ventas-envio-row';
+        envioRow.innerHTML = '<span>🛵 Envío:</span><span class="ventas-envio-cost"></span>';
+        // Insertar antes del total
+        const totalRow = summaryContainer.querySelector('.ventas-total-row');
+        if (totalRow) {
+          summaryContainer.insertBefore(envioRow, totalRow);
+        } else {
+          summaryContainer.appendChild(envioRow);
+        }
+      }
+      envioRow.querySelector('.ventas-envio-cost').textContent = fmt(costoEnvio);
+      envioRow.style.display = 'flex';
+    } else {
+      if (envioRow) envioRow.style.display = 'none';
+    }
+  }
+
+  // Keep old function for compatibility
+  function renderVentaCart() {
+    renderVentaCartVisual();
+  }
+
+  async function createVenta() {
+    if (ventaCart.length === 0) return alert('El carrito está vacío');
+    
+    // Obtener datos del formulario
+    const clienteNombre = document.getElementById('ventaClienteNombre')?.value.trim() || 'Cliente en local';
+    const metodoPago = document.getElementById('ventaMetodoPago')?.value || 'efectivo';
+    const notas = document.getElementById('ventaNotas')?.value.trim() || '';
+    const tipoEntrega = document.getElementById('ventaTipoEntrega')?.value || 'retiro';
+    
+    // Validar datos de despacho si aplica
+    if (tipoEntrega === 'despacho' && !ventaDespachoData) {
+      return alert('Por favor completa los datos de despacho');
+    }
+    
+    const items = ventaCart.map(it => ({ 
+      productoId: it.id, 
+      nombre: it.nombre, 
+      precio: it.precio, 
+      cantidad: it.cantidad, 
+      notas: it.notas || '',
+      ingredientesQuitados: it.ingredientesQuitados || []
+    }));
+    const subtotal = ventaCart.reduce((s,it)=>s + (it.precio||0)*it.cantidad,0);
+    const costoEnvio = ventaDespachoData ? (ventaDespachoData.costoEnvio || 0) : 0;
+    const total = subtotal + costoEnvio;
+    
+    // Construir payload
+    const payload = {
+      nombre: clienteNombre,
+      email: null, // Puedes agregar un campo de email si lo deseas en el futuro
+      telefono: tipoEntrega === 'despacho' && ventaDespachoData ? ventaDespachoData.telefono : null,
+      delivery: tipoEntrega === 'despacho' ? 'domicilio' : 'recogida',
+      direccion: ventaDespachoData ? (ventaDespachoData.direccion + (ventaDespachoData.referencia ? ' (' + ventaDespachoData.referencia + ')' : '')) : null,
+      sectorId: ventaDespachoData ? ventaDespachoData.sectorId : null,
+      items,
+      subtotal,
+      envio: costoEnvio,
+      total,
+      cuponCodigo: null,
+      notas: notas + (metodoPago ? ' | Pago: ' + metodoPago.toUpperCase() : '')
+    };
+    
+    const msgEl = document.getElementById('ventaMsg');
+    const createBtn = document.getElementById('ventaCreateBtn');
+    msgEl.textContent = 'Procesando venta...';
+    msgEl.className = 'ventas-msg';
+    if (createBtn) createBtn.disabled = true;
+    
+    try {
+      const res = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) { 
+        msgEl.textContent = data.error || 'Error al crear venta'; 
+        msgEl.className = 'ventas-msg error';
+        if (createBtn) createBtn.disabled = false;
+        return; 
+      }
+      msgEl.className = 'ventas-msg success';
+      const tipoMsg = tipoEntrega === 'despacho' ? '🛵 Despacho' : '🏪 Retiro';
+      msgEl.textContent = '✅ Venta creada! ' + tipoMsg + ' — Nº: ' + (data.pedido && data.pedido.numeroPedido ? data.pedido.numeroPedido : (data.pedido && data.pedido.id ? data.pedido.id : 'OK'));
+      
+      // Limpiar todo
+      ventaCart = []; 
+      ventaDespachoData = null;
+      renderVentaCartVisual();
+      
+      // Limpiar formulario
+      if (document.getElementById('ventaClienteNombre')) document.getElementById('ventaClienteNombre').value = '';
+      if (document.getElementById('ventaNotas')) document.getElementById('ventaNotas').value = '';
+      if (document.getElementById('ventaMetodoPago')) document.getElementById('ventaMetodoPago').selectedIndex = 0;
+      
+      // Reset tipo entrega a retiro
+      document.querySelectorAll('.ventas-delivery-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.ventas-delivery-btn[data-tipo="retiro"]')?.classList.add('active');
+      document.getElementById('ventaTipoEntrega').value = 'retiro';
+      
+      setTimeout(() => { msgEl.textContent = ''; }, 5000);
+    } catch (e) { 
+      console.error(e); 
+      msgEl.textContent = 'Error de conexión'; 
+      msgEl.className = 'ventas-msg error';
+      if (createBtn) createBtn.disabled = false;
+    }
+  }
 
   document.getElementById('adminName').textContent = authData.user.nombre || 'Admin';
   document.getElementById('adminAvatar').textContent = (authData.user.nombre || 'A')[0].toUpperCase();
@@ -107,10 +679,10 @@
 
     const s = data.stats;
     document.getElementById('statsGrid').innerHTML =
-      statCard('👥', 'Usuarios', s.totalUsers, 'purple') +
-      statCard('🧃', 'Productos', s.totalProducts, 'blue') +
-      statCard('📦', 'Pedidos', s.totalOrders, 'orange') +
-      statCard('💰', 'Ingresos', fmt(s.totalRevenue), 'green');
+      statCard('<img src="/assets/icons/usuariosIcon.png" class="nav-icon" alt="Usuarios">', 'Usuarios', s.totalUsers, 'purple') +
+      statCard('<img src="/assets/icons/productosIcon.png" class="nav-icon" alt="Productos">', 'Productos', s.totalProducts, 'blue') +
+      statCard('<img src="/assets/icons/pedidosIcon.png" class="nav-icon" alt="Pedidos">', 'Pedidos', s.totalOrders, 'orange') +
+      statCard('<img src="/assets/icons/ingresosIcon.png" class="nav-icon" alt="Ingresos">', 'Ingresos', fmt(s.totalRevenue), 'green');
 
     // Orders by status
     let html = '<div class="status-pills">';
@@ -1044,7 +1616,8 @@
     coupons: loadCoupons,
     ingredients: loadIngredients,
     slider: loadSlider,
-    canjes: loadCanjes
+    canjes: loadCanjes,
+    ventas: loadVentas
   };
 
   /* ══════════════════════════════════════════

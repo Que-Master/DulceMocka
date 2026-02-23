@@ -400,6 +400,23 @@ async function loadEstadoLocal() {
     }
     
     banner.style.display = 'block';
+    // Actualizar letrero colgante en la esquina (si existe)
+    try {
+      const corner = document.getElementById('cornerSign');
+      const panel = document.getElementById('cornerSignPanel');
+      if (corner && panel) {
+        if (data.abierto) {
+          corner.classList.remove('closed');
+          panel.textContent = 'ABIERTO';
+        } else {
+          corner.classList.add('closed');
+          panel.textContent = 'CERRADO';
+        }
+        corner.style.display = '';
+        // activar la animación de balanceo
+        setTimeout(() => corner.classList.add('swing'), 80);
+      }
+    } catch (e) { /* ignore */ }
     
     // Guardar estado en sessionStorage para usarlo en checkout
     sessionStorage.setItem('localAbierto', data.abierto ? '1' : '0');
@@ -436,12 +453,58 @@ function saveDismissedNotif(id) {
 
 async function loadNotificaciones() {
   try {
-    const res = await fetch('/api/notificaciones');
-    const notifs = await res.json();
+    // Cargar avisos públicos (broadcast del admin)
+    const avisosRes = await fetch('/api/avisos');
+    let avisos = [];
+    if (avisosRes.ok) {
+      avisos = await avisosRes.json();
+      // Agregar tipo para distinguirlas
+      avisos = avisos.map(a => ({
+        id: 'aviso-' + a.id,
+        titulo: a.titulo,
+        mensaje: a.cuerpo,
+        link: a.link,
+        creadoEn: a.creadoEn,
+        tipo: 'aviso'
+      }));
+    }
+    
+    // Cargar notificaciones del usuario (si está autenticado)
+    let userNotifs = [];
+    try {
+      const userRes = await fetch('/api/notificaciones');
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        if (userData.notificaciones) {
+          userNotifs = userData.notificaciones.map(n => ({
+            id: 'notif-' + n.id,
+            realId: n.id,
+            titulo: n.titulo,
+            mensaje: n.mensaje,
+            link: n.pedidoId ? `/order.html?id=${n.pedidoId}` : null,
+            creadoEn: n.creadoEn,
+            tipo: n.tipo || 'pedido',
+            leida: n.leida,
+            numeroPedido: n.numeroPedido
+          }));
+        }
+      }
+    } catch (e) {
+      // Usuario no autenticado, ignorar
+    }
+    
+    // Combinar y ordenar por fecha
+    const allNotifs = [...avisos, ...userNotifs].sort((a, b) => 
+      new Date(b.creadoEn) - new Date(a.creadoEn)
+    );
+    
     const dismissed = getDismissedNotifs();
     
     // Filter out dismissed notifications for badge count
-    const unread = notifs.filter(n => !dismissed.includes(n.id));
+    const unread = allNotifs.filter(n => {
+      if (n.tipo === 'aviso') return !dismissed.includes(n.id);
+      return !n.leida;
+    });
     
     // Update badge
     if (notifBadge) {
@@ -456,17 +519,20 @@ async function loadNotificaciones() {
     // Render all notifications
     if (!notifDropdownList) return;
     
-    if (!notifs.length) {
+    if (!allNotifs.length) {
       notifDropdownList.innerHTML = '<p class="notif-empty">No hay notificaciones</p>';
       return;
     }
     
-    notifDropdownList.innerHTML = notifs.map(n => {
-      const isRead = dismissed.includes(n.id);
+    notifDropdownList.innerHTML = allNotifs.map(n => {
+      const isRead = n.tipo === 'aviso' ? dismissed.includes(n.id) : n.leida;
+      const icon = n.tipo === 'aviso' ? '📢' : '📦';
+      const subtitulo = n.numeroPedido ? `Pedido #${n.numeroPedido}` : '';
       return `
-        <div class="notif-item-card ${isRead ? 'read' : ''}" data-id="${n.id}" ${n.link ? `data-link="${escapeAttr(n.link)}"` : ''}>
-          <h4>${escapeHtml(n.titulo)}</h4>
-          <p>${escapeHtml(n.cuerpo)}</p>
+        <div class="notif-item-card ${isRead ? 'read' : ''}" data-id="${n.id}" data-real-id="${n.realId || ''}" data-tipo="${n.tipo}" ${n.link ? `data-link="${escapeAttr(n.link)}"` : ''}>
+          <h4>${icon} ${escapeHtml(n.titulo)}</h4>
+          ${subtitulo ? `<small style="color:#7b61ff;font-size:.75rem">${subtitulo}</small>` : ''}
+          <p>${escapeHtml(n.mensaje)}</p>
           <div class="notif-time">${timeAgo(n.creadoEn)}</div>
         </div>
       `;
@@ -474,12 +540,24 @@ async function loadNotificaciones() {
     
     // Add click handlers
     notifDropdownList.querySelectorAll('.notif-item-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const id = Number(card.dataset.id);
+      card.addEventListener('click', async () => {
+        const id = card.dataset.id;
+        const realId = card.dataset.realId;
+        const tipo = card.dataset.tipo;
         const link = card.dataset.link;
-        saveDismissedNotif(id);
+        
+        if (tipo === 'aviso') {
+          saveDismissedNotif(id);
+        } else if (realId) {
+          // Marcar como leída en el servidor
+          try {
+            await fetch(`/api/notificaciones/${realId}/leer`, { method: 'PUT' });
+          } catch (e) { /* ignore */ }
+        }
+        
         card.classList.add('read');
         updateBadgeCount();
+        
         if (link) {
           window.location.href = link;
         }
@@ -544,3 +622,36 @@ if (notifBell && notifDropdown) {
 
 // Load on init
 loadNotificaciones();
+
+// Eliminar posibles duplicados de Mocka Points inyectados en el header
+try {
+  document.querySelectorAll('.site-header .mockapoints-balance').forEach(el => el.remove());
+  // También eliminar cualquier elemento que contenga "pts" en el header actions (excepto los links normales)
+  document.querySelectorAll('.actions > *').forEach(el => {
+    if (el.textContent && el.textContent.includes('pts') && !el.classList.contains('mp-nav-link')) {
+      el.remove();
+    }
+  });
+  // Limpiar el contenido del mp-nav-link para que solo tenga el emoji de trofeo
+  const mpLink = document.querySelector('.mp-nav-link');
+  if (mpLink && mpLink.textContent.trim() !== '🏆') {
+    mpLink.textContent = '🏆';
+  }
+} catch (e) { /* ignore */ }
+
+// Asegurar que el saldo que muestra en la UI principal sea el correcto (si existe el elemento)
+async function refreshMockaBalanceIfVisible() {
+  try {
+    const mpEl = document.getElementById('mpBalanceValue');
+    if (!mpEl) return;
+    const res = await fetch('/api/mockapoints/saldo');
+    if (!res.ok) return;
+    const data = await res.json();
+    mpEl.textContent = (data.puntos || 0).toLocaleString('es-CL');
+    const wrapper = document.getElementById('mpBalance');
+    if (wrapper) wrapper.style.display = '';
+  } catch (e) { /* ignore */ }
+}
+
+// Intentar actualizar el saldo al iniciar (no bloqueante)
+refreshMockaBalanceIfVisible();

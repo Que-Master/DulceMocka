@@ -24,8 +24,8 @@ const PedidoController = {
         cuponCodigo        // código del cupón aplicado (opcional)
       } = req.body;
 
-      if (!nombre || !email || !telefono) {
-        return res.status(400).json({ error: 'Nombre, correo y teléfono son obligatorios' });
+      if (!nombre) {
+        return res.status(400).json({ error: 'El nombre es obligatorio' });
       }
       if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'El pedido debe tener al menos un item' });

@@ -249,8 +249,36 @@
 .mp-nav-link{font-size:1.3rem;text-decoration:none;transition:transform .2s}
 .mp-nav-link:hover{transform:scale(1.2)}
 
+/* Ocultar posibles duplicados de Mocka Points en el header (mostrar solo el enlace izquierdo) */
+.site-header .mockapoints-balance{display:none !important}
+
 /* ── Estado del Local Banner ── */
 .local-status-banner{padding:.6rem 0;text-align:center;font-weight:600;font-size:.95rem}
 .local-status-banner.abierto{background:linear-gradient(90deg,#27ae60,#2ecc71);color:#fff}
 .local-status-banner.cerrado{background:linear-gradient(90deg,#c0392b,#e74c3c);color:#fff}
 .local-status-banner .container{display:flex;align-items:center;justify-content:center;gap:.5rem}
+
+/* ── Letrero colgante en esquina ── */
+.corner-sign{position:fixed;top:18px;right:18px;z-index:1200;display:flex;align-items:flex-start;flex-direction:column;pointer-events:none}
+.corner-sign .sign-rope{width:2px;height:28px;background:#6b5bff;margin:0 auto;border-radius:2px;transform-origin:top center}
+.corner-sign .sign-panel{margin-top:6px;min-width:92px;padding:.5rem 0;text-align:center;border-radius:8px;background:#27ae60;color:#fff;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.12);pointer-events:auto}
+.corner-sign.closed .sign-panel{background:linear-gradient(90deg,#c0392b,#e74c3c)}
+.corner-sign .sign-panel.small{min-width:68px;padding:.35rem 0;font-size:.85rem}
+
+/* Swing animation (pendulum) */
+@keyframes signSwing {
+	0%{transform:rotate(-4deg)}
+	50%{transform:rotate(4deg)}
+	100%{transform:rotate(-4deg)}
+}
+.corner-sign.swing .sign-rope,
+.corner-sign.swing .sign-panel{
+	transform-origin: top center;
+	animation: signSwing 3.2s ease-in-out infinite;
+}
+
+/* Make it smaller on mobile */
+@media (max-width:600px){
+	.corner-sign{top:12px;right:12px}
+	.corner-sign .sign-panel{min-width:68px;padding:.35rem 0;font-size:.85rem}
+}

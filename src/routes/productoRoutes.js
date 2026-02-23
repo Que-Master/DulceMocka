@@ -81,8 +81,8 @@ router.get('/estado-local', async (req, res) => {
   }
 });
 
-// Notificaciones públicas (solo activas)
-router.get('/notificaciones', async (req, res) => {
+// Avisos/Anuncios públicos (solo activos) - notificaciones broadcast del admin
+router.get('/avisos', async (req, res) => {
   try {
     const notifs = await q('SELECT id, titulo, cuerpo, link, creadoEn FROM notificacion_global WHERE activa = 1 ORDER BY creadoEn DESC');
     res.json(notifs);

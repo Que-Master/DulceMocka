@@ -283,3 +283,26 @@ CREATE INDEX idx_producto_slug ON producto(slug);
 CREATE INDEX idx_pedido_usuarioId ON pedido(usuarioId);
 CREATE INDEX idx_pedido_estadoId ON pedido(estadoId);
 CREATE INDEX idx_notificacion_usuarioId ON notificacion(usuarioId);
+
+-- ============================================
+-- DATOS INICIALES (requeridos para funcionamiento)
+-- ============================================
+
+-- Roles de usuario
+INSERT IGNORE INTO rol (id, nombre, descripcion, activo) VALUES
+  ('a1d5fd49-29c9-42bb-9ca9-330c47742d06', 'admin', 'Administrador del sistema', 1),
+  ('f30343d4-b6df-4900-9ef7-f31aaa1c4724', 'cliente', 'Cliente de la tienda', 1);
+
+-- Estados de pedido
+INSERT IGNORE INTO estadopedido (id, nombre, descripcion, orden) VALUES
+  ('5367e749-073f-11f1-a0ba-a8b13b90c347', 'Pendiente', 'Pedido recibido por el sistema', 1),
+  ('536815d4-073f-11f1-a0ba-a8b13b90c347', 'Preparando', 'El pedido está siendo elaborado en cocina', 2),
+  ('6be8227e-cb29-4356-8dbe-4c4fc500eeac', 'Listo para retirar', 'El pedido está listo para ser retirado en tienda', 3),
+  ('536816aa-073f-11f1-a0ba-a8b13b90c347', 'En Camino', 'El repartidor lleva el pedido a la dirección', 4),
+  ('536816e3-073f-11f1-a0ba-a8b13b90c347', 'Entregado', 'El cliente recibió el pedido con éxito', 5),
+  ('53681716-073f-11f1-a0ba-a8b13b90c347', 'Cancelado', 'Pedido anulado por el usuario o local', 6);
+
+-- Tipos de entrega
+INSERT IGNORE INTO tipoentrega (id, nombre, descripcion) VALUES
+  ('12eee012-8895-4f0a-a502-242b85e5bef7', 'Recogida', 'Recoger en tienda'),
+  ('be5857a5-971e-41fc-87ce-b2d6561091ee', 'Delivery', 'Entrega a domicilio');

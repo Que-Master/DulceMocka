@@ -13,7 +13,7 @@ function requireAdmin(req, res, next) {
   }
   const db = require('../models/db');
   db.query(
-    "SELECT r.nombre FROM usuario u JOIN rol r ON r.id = u.rolId WHERE u.id = ? AND r.nombre = 'admin'",
+    "SELECT r.nombre FROM usuario u JOIN rol r ON r.id = u.rolId WHERE u.id = ? AND (LOWER(r.nombre) = 'admin' OR LOWER(r.nombre) = 'administrador')",
     [req.user.id],
     (err, rows) => {
       if (err) return res.status(500).json({ error: 'Error interno' });

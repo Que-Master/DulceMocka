@@ -69,15 +69,31 @@ const obtenerProductoPorId = (id, callback) => {
 module.exports = { obtenerProductos, obtenerCategorias, obtenerProductoPorId };
 
 // Obtener todos los ingredientes activos
-const obtenerIngredientes = (callback) => {
-  const sql = `SELECT id, nombre, descripcion FROM ingrediente WHERE activo = 1 ORDER BY nombre`;
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error('productoModel.obtenerIngredientes error:', err.message);
-      return callback(err, []);
-    }
-    return callback(null, results);
-  });
+const obtenerIngredientes = (productoId, callback) => {
+  if (productoId) {
+    const sql = `SELECT i.id, i.nombre, i.descripcion,
+      IFNULL(pi.incluidoPorDefecto, 0) AS incluidoPorDefecto,
+      IFNULL(pi.sePuedeQuitar, 1) AS sePuedeQuitar
+      FROM productoingrediente pi
+      JOIN ingrediente i ON pi.ingredienteId = i.id
+      WHERE pi.productoId = ?`;
+    db.query(sql, [productoId], (err, results) => {
+      if (err) {
+        console.error('productoModel.obtenerIngredientes error:', err.message);
+        return callback(err, []);
+      }
+      return callback(null, results);
+    });
+  } else {
+    const sql = `SELECT id, nombre, descripcion FROM ingrediente WHERE activo = 1 ORDER BY nombre`;
+    db.query(sql, (err, results) => {
+      if (err) {
+        console.error('productoModel.obtenerIngredientes error:', err.message);
+        return callback(err, []);
+      }
+      return callback(null, results);
+    });
+  }
 };
 
 // Obtener sectores activos
