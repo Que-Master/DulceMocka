@@ -927,6 +927,7 @@
         '<td>' + statusBadge(p.estado) + '</td>' +
         '<td>' + fmtDate(p.creadoEn) + '</td>' +
         '<td><button class="btn small" data-view-order="' + p.id + '">👁️</button> ' +
+          '<button class="btn small" data-print-order="' + p.id + '" title="Imprimir boleta">🖨️</button> ' +
           '<select class="status-select" data-order-status="' + p.id + '">' +
             estadosFiltrados.map(e => '<option value="' + e.id + '"' + (e.id === p.estadoId ? ' selected' : '') + '>' + e.nombre + '</option>').join('') +
           '</select></td>';
@@ -936,6 +937,51 @@
     // Events
     tbody.querySelectorAll('[data-view-order]').forEach(btn => {
       btn.addEventListener('click', () => viewOrder(btn.dataset.viewOrder));
+    });
+    // Botón imprimir boleta
+    tbody.querySelectorAll('[data-print-order]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const orderId = btn.dataset.printOrder;
+        btn.disabled = true;
+        btn.textContent = '🖨️...';
+        try {
+          // Obtener datos completos del pedido
+          const data = await api('/api/admin/pedidos/' + orderId);
+          if (!data.pedido) throw new Error('Pedido no encontrado');
+          // Armar payload para print-server
+          const p = data.pedido;
+          const items = (data.items || []).map(i => ({
+            nombre: i.nombreProducto,
+            cantidad: i.cantidad,
+            precio: i.precioUnitario
+          }));
+          const envio = (Number(p.total) || 0) - (Number(p.subtotal) || 0) + (Number(p.descuentoTotal) || 0);
+          const payload = {
+            pedido: p.numeroPedido,
+            cliente: p.nombreContacto,
+            tipoEntrega: p.tipoEntrega,
+            direccion: p.calle ? `${p.calle} ${p.numeroCasa}, ${p.sector}` : '',
+            telefono: p.telefonoContacto,
+            metodoPago: p.metodoPago || '',
+            envio: envio > 0 ? envio : 0,
+            items
+          };
+          // Enviar a print-server
+          const res = await fetch('http://localhost:3002/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await res.json();
+          if (!result.ok) throw new Error(result.error || 'Error al imprimir');
+          btn.textContent = '✅';
+          setTimeout(() => { btn.textContent = '🖨️'; btn.disabled = false; }, 1500);
+        } catch (err) {
+          btn.textContent = '❌';
+          setTimeout(() => { btn.textContent = '🖨️'; btn.disabled = false; }, 2000);
+          alert('Error al imprimir: ' + (err.message || err));
+        }
+      });
     });
     tbody.querySelectorAll('[data-order-status]').forEach(sel => {
       sel.addEventListener('change', async () => {

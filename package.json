@@ -11,7 +11,10 @@
   "description": "",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.4",
+    "escpos": "^3.0.0-alpha.6",
+    "escpos-usb": "^3.0.0-alpha.4",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "mysql2": "^3.16.3",

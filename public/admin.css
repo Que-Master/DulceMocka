@@ -193,7 +193,7 @@ code{background:#f3f4f6;padding:.15rem .4rem;border-radius:4px;font-size:.85rem;
 @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
 
 /* ═══════════════════════════════════════════════════════
-   VENTAS EN LOCAL — Nueva interfaz tipo POS
+  VENTAS EN LOCAL — Nueva interfaz tipo POS
    ═══════════════════════════════════════════════════════ */
 .ventas-grid{display:grid;grid-template-columns:1fr 380px;gap:1.5rem;min-height:600px}
 @media(max-width:900px){.ventas-grid{grid-template-columns:1fr;}}
