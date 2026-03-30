@@ -34,11 +34,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
+app.use('/api/notificaciones', notificacionRoutes);
 app.use('/api', productoRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/perfil', perfilRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/notificaciones', notificacionRoutes);
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {

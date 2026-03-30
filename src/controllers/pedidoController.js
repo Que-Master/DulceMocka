@@ -1,6 +1,7 @@
 // src/controllers/pedidoController.js
 const db = require('../models/db');
 const { v4: uuidv4 } = require('uuid');
+const { crearNotificacion } = require('./notificacionController');
 
 function q(sql, params) {
   return new Promise((resolve, reject) => {
@@ -149,6 +150,21 @@ const PedidoController = {
            VALUES (?,?,?,?,?,?,?,?)`,
           [itemId, pedidoId, it.productoId || null, it.nombre || 'Producto', precio, qty, notasItem || null, totalLinea]
         );
+      }
+
+      // Notificación automática al usuario cuando crea pedido
+      if (usuarioId) {
+        try {
+          await crearNotificacion({
+            usuarioId,
+            pedidoId,
+            tipo: 'pedido',
+            titulo: '✅ Pedido recibido',
+            mensaje: 'Tu pedido ' + numeroPedido + ' fue creado correctamente y está en estado Pendiente.'
+          });
+        } catch (notifErr) {
+          console.error('Error creando notificación automática de pedido:', notifErr.message);
+        }
       }
 
       res.json({

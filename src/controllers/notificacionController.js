@@ -1,5 +1,6 @@
 // src/controllers/notificacionController.js
 const db = require('../models/db');
+const { v4: uuidv4 } = require('uuid');
 
 // Promise wrapper
 function q(sql, params = []) {
@@ -15,8 +16,8 @@ function q(sql, params = []) {
  */
 async function crearNotificacion({ usuarioId, pedidoId, tipo, titulo, mensaje, motivoCancelacion }) {
   await q(
-    `INSERT INTO notificacion (usuarioId, pedidoId, tipo, titulo, mensaje, motivoCancelacion) VALUES (?, ?, ?, ?, ?, ?)`,
-    [usuarioId, pedidoId || null, tipo || 'estado_pedido', titulo, mensaje || '', motivoCancelacion || null]
+    `INSERT INTO notificacion (id, usuarioId, pedidoId, tipo, titulo, mensaje, motivoCancelacion) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [uuidv4(), usuarioId, pedidoId || null, tipo || 'estado_pedido', titulo, mensaje || '', motivoCancelacion || null]
   );
 }
 
@@ -25,7 +26,7 @@ async function crearNotificacion({ usuarioId, pedidoId, tipo, titulo, mensaje, m
  */
 async function obtenerNotificaciones(req, res) {
   try {
-    const rows = await q(
+    const personales = await q(
       `SELECT n.*, p.numeroPedido
        FROM notificacion n
        LEFT JOIN pedido p ON p.id = n.pedidoId
@@ -34,8 +35,34 @@ async function obtenerNotificaciones(req, res) {
        LIMIT 50`,
       [req.user.id]
     );
-    const sinLeer = rows.filter(r => !r.leida).length;
-    res.json({ notificaciones: rows, sinLeer });
+
+    const globales = await q(
+      `SELECT id, titulo, cuerpo, link, activa, creadoEn
+       FROM notificacion_global
+       WHERE activa = 1
+       ORDER BY creadoEn DESC
+       LIMIT 50`
+    );
+
+    const notifsGlobales = globales.map(g => ({
+      id: 'g-' + g.id,
+      pedidoId: null,
+      tipo: 'global',
+      titulo: g.titulo,
+      mensaje: g.cuerpo,
+      motivoCancelacion: null,
+      leida: 1,
+      creadoEn: g.creadoEn,
+      esGlobal: true,
+      link: g.link || null
+    }));
+
+    const notificaciones = [...personales, ...notifsGlobales].sort((a, b) => {
+      return new Date(b.creadoEn) - new Date(a.creadoEn);
+    });
+
+    const sinLeer = personales.filter(r => !r.leida).length;
+    res.json({ notificaciones, sinLeer });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

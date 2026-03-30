@@ -2,6 +2,19 @@
    profile.css — Estilos de la página de perfil
    ═══════════════════════════════════════════════════════ */
 
+:root {
+  --pf-primary-900: #261a52;
+  --pf-primary-700: #4f33a3;
+  --pf-primary-600: #6b5bff;
+  --pf-primary-500: #8f77ff;
+  --pf-bg: #f4efff;
+  --pf-surface: #ffffff;
+  --pf-surface-soft: #f6f1ff;
+  --pf-border: #e6defa;
+  --pf-text: #241d40;
+  --pf-muted: #716a89;
+}
+
 /* ── Layout ── */
 .profile-page {
   display: grid;
@@ -10,13 +23,15 @@
   padding-top: 2rem;
   padding-bottom: 3rem;
   min-height: calc(100vh - 160px);
+  color: var(--pf-text);
 }
 
 /* ── Sidebar ── */
 .profile-sidebar {
-  background: #fff;
+  background: var(--pf-surface);
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.06);
+  box-shadow: 0 12px 30px rgba(40,28,79,.1);
+  border: 1px solid var(--pf-border);
   padding: 2rem 1.5rem;
   text-align: center;
   position: sticky;
@@ -27,7 +42,7 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #7b61ff, #c776ff);
+  background: linear-gradient(130deg, var(--pf-primary-700), var(--pf-primary-500));
   color: #fff;
   font-size: 2rem;
   font-weight: 700;
@@ -39,10 +54,10 @@
 .profile-sidebar-name {
   font-size: 1.15rem;
   margin: 0 0 .2rem;
-  color: #222;
+  color: var(--pf-text);
 }
 .profile-sidebar-email {
-  color: #888;
+  color: var(--pf-muted);
   font-size: .85rem;
   word-break: break-all;
   margin: 0 0 1.5rem;
@@ -62,16 +77,16 @@
   text-align: left;
   font-size: .95rem;
   font-weight: 600;
-  color: #555;
+  color: var(--pf-muted);
   cursor: pointer;
   transition: all .15s;
 }
 .profile-tab:hover {
-  background: #f5f3ff;
-  color: #6b5bff;
+  background: var(--pf-surface-soft);
+  color: var(--pf-primary-600);
 }
 .profile-tab.active {
-  background: linear-gradient(90deg, #7b61ff, #c776ff);
+  background: linear-gradient(100deg, var(--pf-primary-700), var(--pf-primary-500));
   color: #fff;
 }
 
@@ -81,9 +96,10 @@
 }
 .tab-panel {
   display: none;
-  background: #fff;
+  background: var(--pf-surface);
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.06);
+  box-shadow: 0 12px 30px rgba(40,28,79,.1);
+  border: 1px solid var(--pf-border);
   padding: 2rem;
 }
 .tab-panel.active {
@@ -92,7 +108,7 @@
 .tab-panel h2 {
   font-size: 1.4rem;
   margin: 0 0 1.5rem;
-  color: #222;
+  color: var(--pf-primary-900);
 }
 .tab-header {
   display: flex;
@@ -113,7 +129,7 @@
 #addressForm label {
   display: block;
   font-weight: 600;
-  color: #333;
+  color: #2f2559;
   margin-bottom: .35rem;
   font-size: .9rem;
 }
@@ -126,12 +142,12 @@
 #addressForm textarea {
   width: 100%;
   padding: .7rem .9rem;
-  border: 1.5px solid #e4e7ef;
+  border: 1.5px solid var(--pf-border);
   border-radius: 10px;
   font-size: .95rem;
   font-family: inherit;
   transition: border-color .2s, box-shadow .2s;
-  background: #fafbfd;
+  background: #fcfaff;
 }
 .profile-form input:focus,
 .profile-form select:focus,
@@ -140,8 +156,8 @@
 #addressForm select:focus,
 #addressForm textarea:focus {
   outline: none;
-  border-color: #7b61ff;
-  box-shadow: 0 0 0 3px rgba(123,97,255,.12);
+  border-color: var(--pf-primary-600);
+  box-shadow: 0 0 0 3px rgba(107,91,255,.12);
   background: #fff;
 }
 .profile-form input:disabled {
@@ -178,7 +194,7 @@
   display: inline-flex;
   align-items: center;
   gap: .3rem;
-  background: linear-gradient(90deg, #ff9f1c, #ffbf69);
+  background: linear-gradient(100deg, var(--pf-primary-700), var(--pf-primary-500));
   color: #fff;
   padding: .5rem 1rem;
   border-radius: 999px;
@@ -186,7 +202,7 @@
   font-size: .95rem;
 }
 .member-since {
-  color: #888;
+  color: var(--pf-muted);
   font-size: .95rem;
   padding: .5rem 0;
 }
@@ -205,7 +221,7 @@
 .checkbox-label input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #7b61ff;
+  accent-color: var(--pf-primary-600);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -217,20 +233,20 @@
   gap: .75rem;
 }
 .address-card {
-  border: 1.5px solid #eef0f7;
+  border: 1.5px solid var(--pf-border);
   border-radius: 12px;
   padding: 1rem 1.25rem;
-  background: #fafbfd;
+  background: #fcfaff;
   transition: border-color .2s, box-shadow .2s;
 }
 .address-card:hover {
-  border-color: #d0d4e3;
-  box-shadow: 0 2px 10px rgba(0,0,0,.04);
+  border-color: #d3c7fb;
+  box-shadow: 0 6px 16px rgba(56,41,109,.08);
 }
 .address-card.principal {
-  border-color: #c5b3ff;
-  background: linear-gradient(135deg, #faf8ff, #f3eeff);
-  box-shadow: 0 2px 12px rgba(123,97,255,.08);
+  border-color: #c9b8ff;
+  background: linear-gradient(130deg, #f9f5ff, #f1eaff);
+  box-shadow: 0 8px 20px rgba(79,51,163,.14);
 }
 .address-card-header {
   display: flex;
@@ -245,19 +261,19 @@
   color: #222;
 }
 .addr-detail {
-  color: #666;
+  color: var(--pf-muted);
   font-size: .88rem;
   margin: .2rem 0;
 }
 .addr-note {
-  color: #888;
+  color: var(--pf-muted);
   font-size: .85rem;
   font-style: italic;
   margin: .3rem 0 0;
 }
 .badge-principal {
   display: inline-block;
-  background: linear-gradient(90deg, #7b61ff, #c776ff);
+  background: linear-gradient(100deg, var(--pf-primary-700), var(--pf-primary-500));
   color: #fff;
   font-size: .72rem;
   padding: .2rem .6rem;
@@ -342,8 +358,8 @@
   border-radius: 6px;
 }
 .modal-close:hover {
-  background: #f5f3ff;
-  color: #6b5bff;
+  background: var(--pf-surface-soft);
+  color: var(--pf-primary-600);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -374,15 +390,15 @@
 
 /* ═══ CUPONES ═══ */
 .coupon-claim-box {
-  background: linear-gradient(135deg, #f0edff 0%, #fff7ed 100%);
+  background: linear-gradient(135deg, #f4efff 0%, #fdfbff 100%);
   border-radius: 14px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  border: 1px dashed #c4b5fd;
+  border: 1px dashed #cdbdff;
 }
 .coupon-claim-box h4 {
   margin-bottom: .75rem;
-  color: #5b21b6;
+  color: var(--pf-primary-700);
 }
 .coupon-claim-form {
   display: flex;
@@ -391,7 +407,7 @@
 .coupon-claim-form input {
   flex: 1;
   padding: .65rem 1rem;
-  border: 2px solid #d8b4fe;
+  border: 2px solid #d6c7ff;
   border-radius: 10px;
   font-size: 1rem;
   font-weight: 700;
@@ -400,11 +416,11 @@
   transition: border-color .2s;
 }
 .coupon-claim-form input:focus {
-  border-color: #7c3aed;
+  border-color: var(--pf-primary-600);
 }
 .coupon-claim-form .btn {
   padding: .65rem 1.5rem;
-  background: #7c3aed;
+  background: linear-gradient(100deg, var(--pf-primary-700), var(--pf-primary-500));
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -413,7 +429,7 @@
   white-space: nowrap;
 }
 .coupon-claim-form .btn:hover {
-  background: #6d28d9;
+  filter: brightness(.96);
 }
 
 .coupons-grid {
@@ -472,18 +488,18 @@
   padding: .2rem 1.2rem 1rem;
   font-size: 1.8rem;
   font-weight: 800;
-  color: #7c3aed;
+  color: var(--pf-primary-700);
 }
 .coupon-code {
-  background: #f5f3ff;
+  background: var(--pf-surface-soft);
   padding: .6rem 1.2rem;
   font-family: monospace;
   font-size: .95rem;
   font-weight: 700;
-  color: #5b21b6;
+  color: var(--pf-primary-700);
   letter-spacing: 2px;
-  border-top: 1px dashed #d8b4fe;
-  border-bottom: 1px dashed #d8b4fe;
+  border-top: 1px dashed #d6c7ff;
+  border-bottom: 1px dashed #d6c7ff;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -493,7 +509,7 @@
   border: none;
   cursor: pointer;
   font-size: 1rem;
-  color: #7c3aed;
+  color: var(--pf-primary-700);
   padding: 2px 6px;
   border-radius: 6px;
   transition: background .15s;
@@ -503,7 +519,7 @@
 .coupon-details {
   padding: .75rem 1.2rem;
   font-size: .82rem;
-  color: #6b7280;
+  color: var(--pf-muted);
   display: flex;
   flex-direction: column;
   gap: .3rem;

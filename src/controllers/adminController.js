@@ -3,6 +3,7 @@ const db = require('../models/db');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const { crearNotificacion } = require('./notificacionController');
+const { getIngresosReport, buildIngresosWorkbook } = require('../services/ingresosService');
 
 /* ═══════════════════════════════════════════════════════
    HELPERS
@@ -15,6 +16,59 @@ function q(sql, params) {
   });
 }
 
+function normalizeText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function getDeliveryKind(tipoEntrega) {
+  const tipo = normalizeText(tipoEntrega);
+  if (!tipo) return null;
+  if (tipo.includes('retiro') || tipo.includes('recogida')) return 'retiro';
+  if (tipo.includes('delivery') || tipo.includes('despacho')) return 'delivery';
+  return null;
+}
+
+function isEstadoAllowedForDelivery(estadoNombre, tipoEntrega) {
+  const estado = normalizeText(estadoNombre);
+  const kind = getDeliveryKind(tipoEntrega);
+  if (kind === 'retiro' && estado === 'en camino') return false;
+  if (kind === 'delivery' && (estado === 'listo para retiro' || estado === 'listo para retirar')) return false;
+  return true;
+}
+
+function toYmd(dateLike) {
+  const d = new Date(dateLike);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+async function ensureCajaTable() {
+  await q(`
+    CREATE TABLE IF NOT EXISTS cajacierre (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      abierto TINYINT(1) NOT NULL DEFAULT 1,
+      montoApertura DECIMAL(12,2) NOT NULL DEFAULT 0,
+      aperturaAt DATETIME NOT NULL,
+      cierreAt DATETIME NULL,
+      ingresosTurno DECIMAL(12,2) NOT NULL DEFAULT 0,
+      montoCierre DECIMAL(12,2) NOT NULL DEFAULT 0,
+      abiertoPorUsuarioId VARCHAR(36) NULL,
+      cerradoPorUsuarioId VARCHAR(36) NULL,
+      creadoEn DATETIME DEFAULT CURRENT_TIMESTAMP,
+      actualizadoEn DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_caja_abierto (abierto),
+      INDEX idx_caja_cierreAt (cierreAt)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+}
+
 const AdminController = {
 
   /* ══════════════════════════════════════════
@@ -24,8 +78,8 @@ const AdminController = {
     try {
       const [users] = await q('SELECT COUNT(*) AS c FROM usuario WHERE activo=1');
       const [products] = await q('SELECT COUNT(*) AS c FROM producto WHERE activo=1');
-      const [orders] = await q('SELECT COUNT(*) AS c FROM pedido');
-      const [revenue] = await q('SELECT COALESCE(SUM(total),0) AS c FROM pedido');
+      const [orders] = await q('SELECT COUNT(*) AS c FROM pedido WHERE DATE(creadoEn) = CURDATE()');
+      const [revenue] = await q('SELECT COALESCE(SUM(total),0) AS c FROM pedido WHERE DATE(creadoEn) = CURDATE()');
 
       // Pedidos por estado
       const ordersByStatus = await q(`
@@ -71,6 +125,167 @@ const AdminController = {
     }
   },
 
+  async getIngresosReport(req, res) {
+    try {
+      const { startDate, endDate } = req.query;
+      const report = await getIngresosReport(q, startDate, endDate);
+      res.json(report);
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Error generando reporte de ingresos';
+      const status = msg.includes('Rango de fechas inválido') || msg.includes('fecha de inicio') ? 400 : 500;
+      res.status(status).json({ error: msg });
+    }
+  },
+
+  async exportIngresosExcel(req, res) {
+    try {
+      const { startDate, endDate } = req.query;
+      const report = await getIngresosReport(q, startDate, endDate);
+      const workbook = await buildIngresosWorkbook(report);
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="ingresos_${stamp}.xlsx"`);
+      res.send(Buffer.from(buffer));
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Error exportando Excel de ingresos';
+      const status = msg.includes('Rango de fechas inválido') || msg.includes('fecha de inicio') ? 400 : 500;
+      res.status(status).json({ error: msg });
+    }
+  },
+
+  async getCajaEstado(req, res) {
+    try {
+      await ensureCajaTable();
+
+      const [abierta] = await q('SELECT * FROM cajacierre WHERE abierto = 1 ORDER BY aperturaAt DESC LIMIT 1');
+      const [ultimoCierre] = await q('SELECT * FROM cajacierre WHERE abierto = 0 AND cierreAt IS NOT NULL ORDER BY cierreAt DESC LIMIT 1');
+
+      if (abierta) {
+        const report = await getIngresosReport(q, abierta.aperturaAt, new Date());
+        const ingresosTurno = Number((report.totals && report.totals.totalIngresos) || 0);
+        const montoApertura = Number(abierta.montoApertura || 0);
+        const montoCierre = montoApertura + ingresosTurno;
+
+        const defaultDate = ultimoCierre
+          ? toYmd(ultimoCierre.cierreAt)
+          : toYmd(new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+        return res.json({
+          abierta: true,
+          aperturaAt: abierta.aperturaAt,
+          montoApertura,
+          ingresosTurno,
+          montoCierre,
+          ultimoCierreAt: ultimoCierre ? ultimoCierre.cierreAt : null,
+          defaultDate
+        });
+      }
+
+      const defaultDate = ultimoCierre ? toYmd(ultimoCierre.cierreAt) : toYmd(new Date());
+      return res.json({
+        abierta: false,
+        aperturaAt: null,
+        montoApertura: 0,
+        ingresosTurno: Number((ultimoCierre && ultimoCierre.ingresosTurno) || 0),
+        montoCierre: Number((ultimoCierre && ultimoCierre.montoCierre) || 0),
+        ultimoCierreAt: ultimoCierre ? ultimoCierre.cierreAt : null,
+        defaultDate
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async abrirCaja(req, res) {
+    try {
+      await ensureCajaTable();
+      const montoApertura = Number(req.body && req.body.montoApertura);
+      if (!Number.isFinite(montoApertura) || montoApertura < 0) {
+        return res.status(400).json({ error: 'Monto de apertura inválido' });
+      }
+
+      const [abierta] = await q('SELECT id FROM cajacierre WHERE abierto = 1 LIMIT 1');
+      if (abierta) {
+        return res.status(400).json({ error: 'Ya existe una caja abierta' });
+      }
+
+      const id = uuidv4();
+      await q(
+        'INSERT INTO cajacierre (id, abierto, montoApertura, aperturaAt, abiertoPorUsuarioId) VALUES (?,1,?,NOW(),?)',
+        [id, montoApertura, req.user ? req.user.id : null]
+      );
+
+      res.json({ ok: true, id, montoApertura });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async cerrarCaja(req, res) {
+    try {
+      await ensureCajaTable();
+      const [abierta] = await q('SELECT * FROM cajacierre WHERE abierto = 1 ORDER BY aperturaAt DESC LIMIT 1');
+      if (!abierta) {
+        return res.status(400).json({ error: 'No hay caja abierta' });
+      }
+
+      const report = await getIngresosReport(q, abierta.aperturaAt, new Date());
+      const ingresosTurno = Number((report.totals && report.totals.totalIngresos) || 0);
+      const montoApertura = Number(abierta.montoApertura || 0);
+      const montoCierre = montoApertura + ingresosTurno;
+
+      await q(
+        'UPDATE cajacierre SET abierto = 0, cierreAt = NOW(), ingresosTurno = ?, montoCierre = ?, cerradoPorUsuarioId = ? WHERE id = ?',
+        [ingresosTurno, montoCierre, req.user ? req.user.id : null, abierta.id]
+      );
+
+      const [cierre] = await q('SELECT * FROM cajacierre WHERE id = ? LIMIT 1', [abierta.id]);
+      res.json({
+        ok: true,
+        cierre: {
+          id: cierre.id,
+          aperturaAt: cierre.aperturaAt,
+          cierreAt: cierre.cierreAt,
+          montoApertura: Number(cierre.montoApertura || 0),
+          ingresosTurno: Number(cierre.ingresosTurno || 0),
+          montoCierre: Number(cierre.montoCierre || 0)
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async getCierresByFecha(req, res) {
+    try {
+      await ensureCajaTable();
+      const fecha = String(req.query.fecha || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+        return res.status(400).json({ error: 'Fecha inválida' });
+      }
+
+      const rows = await q(
+        'SELECT * FROM cajacierre WHERE abierto = 0 AND cierreAt IS NOT NULL AND DATE(cierreAt) = ? ORDER BY cierreAt DESC',
+        [fecha]
+      );
+
+      const cierres = (rows || []).map((r) => ({
+        id: r.id,
+        aperturaAt: r.aperturaAt,
+        cierreAt: r.cierreAt,
+        montoApertura: Number(r.montoApertura || 0),
+        ingresosTurno: Number(r.ingresosTurno || 0),
+        montoCierre: Number(r.montoCierre || 0)
+      }));
+
+      res.json({ cierres });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
   /* ══════════════════════════════════════════
      PEDIDOS
      ══════════════════════════════════════════ */
@@ -80,10 +295,12 @@ const AdminController = {
         SELECT p.id, p.numeroPedido, p.nombreContacto, p.correoContacto, p.telefonoContacto,
                p.subtotal, p.descuentoTotal, p.total, p.creadoEn, p.entregadoEn,
                ep.nombre AS estado, ep.id AS estadoId,
+               mp.nombre AS metodoPago,
                te.nombre AS tipoEntrega,
                d.calle, d.numeroCasa, s.nombre AS sector
         FROM pedido p
         LEFT JOIN estadopedido ep ON ep.id = p.estadoId
+        LEFT JOIN metodopago mp ON mp.id = p.metodoPagoId
         LEFT JOIN tipoentrega te ON te.id = p.tipoEntregaId
         LEFT JOIN direccion d ON d.id = p.direccionId
         LEFT JOIN sector s ON s.id = d.sectorId
@@ -98,10 +315,12 @@ const AdminController = {
     try {
       const [order] = await q(`
         SELECT p.*, ep.nombre AS estado, te.nombre AS tipoEntrega,
+               mp.nombre AS metodoPago,
                d.calle, d.numeroCasa, d.nota AS notaDireccion, sec.nombre AS sector,
                u.nombre AS usuarioNombre, u.correo AS usuarioCorreo
         FROM pedido p
         LEFT JOIN estadopedido ep ON ep.id = p.estadoId
+        LEFT JOIN metodopago mp ON mp.id = p.metodoPagoId
         LEFT JOIN tipoentrega te ON te.id = p.tipoEntregaId
         LEFT JOIN direccion d ON d.id = p.direccionId
         LEFT JOIN sector sec ON sec.id = d.sectorId
@@ -122,17 +341,65 @@ const AdminController = {
 
   async updateOrderStatus(req, res) {
     try {
-      const { estadoId, motivoCancelacion } = req.body;
+      const { estadoId, motivoCancelacion, metodoPagoId } = req.body;
       if (!estadoId) return res.status(400).json({ error: 'Estado requerido' });
 
       // Obtener info del estado nuevo
       const [estado] = await q('SELECT nombre FROM estadopedido WHERE id=?', [estadoId]);
-      const extra = estado && estado.nombre === 'Entregado' ? ', entregadoEn=NOW()' : '';
+      const esEntregado = estado && estado.nombre === 'Entregado';
 
-      // Obtener info del pedido para la notificación
-      const [pedido] = await q('SELECT p.numeroPedido, p.usuarioId, p.total, ep.nombre AS estadoAnterior FROM pedido p LEFT JOIN estadopedido ep ON ep.id = p.estadoId WHERE p.id=?', [req.params.id]);
+      // Obtener info del pedido para validaciones y notificación
+      const [pedido] = await q(
+        'SELECT p.numeroPedido, p.usuarioId, p.total, p.metodoPagoId, te.nombre AS tipoEntrega, ep.nombre AS estadoAnterior FROM pedido p LEFT JOIN tipoentrega te ON te.id = p.tipoEntregaId LEFT JOIN estadopedido ep ON ep.id = p.estadoId WHERE p.id=?',
+        [req.params.id]
+      );
+      if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
 
-      await q(`UPDATE pedido SET estadoId=?, actualizadoEn=NOW()${extra} WHERE id=?`, [estadoId, req.params.id]);
+      if (estado && !isEstadoAllowedForDelivery(estado.nombre, pedido.tipoEntrega)) {
+        return res.status(400).json({
+          error: 'Estado no válido para este tipo de entrega'
+        });
+      }
+
+      let metodoPago = null;
+      if (esEntregado) {
+        const metodoIdFinal = metodoPagoId || pedido.metodoPagoId;
+        if (!metodoIdFinal) {
+          return res.status(400).json({ error: 'Método de pago requerido para marcar como entregado' });
+        }
+        // Si llega uno nuevo desde UI, exigir que esté activo.
+        // Si ya estaba guardado en pedido, permitirlo aunque esté inactivo para no bloquear historial.
+        const [mp] = await q(
+          metodoPagoId
+            ? 'SELECT id, nombre FROM metodopago WHERE id = ? AND activo = 1 LIMIT 1'
+            : 'SELECT id, nombre FROM metodopago WHERE id = ? LIMIT 1',
+          [metodoIdFinal]
+        );
+        if (!mp) {
+          return res.status(400).json({ error: 'Método de pago inválido' });
+        }
+        metodoPago = mp;
+      }
+
+      let extra = '';
+      const paramsUpdate = [estadoId];
+      if (esEntregado) {
+        extra += ', entregadoEn=NOW(), metodoPagoId=?';
+        paramsUpdate.push(metodoPago.id);
+      }
+      paramsUpdate.push(req.params.id);
+      await q(`UPDATE pedido SET estadoId=?, actualizadoEn=NOW()${extra} WHERE id=?`, paramsUpdate);
+
+      // Si se marca como Entregado, sumar el monto a la caja abierta (ya sea retiro o despacho)
+      if (esEntregado) {
+        await ensureCajaTable();
+        const [cajaAbierta] = await q('SELECT id, ingresosTurno FROM cajacierre WHERE abierto = 1 ORDER BY aperturaAt DESC LIMIT 1');
+        if (cajaAbierta) {
+          const montoActual = Number(cajaAbierta.ingresosTurno || 0);
+          const montoNuevo = montoActual + Number(pedido.total || 0);
+          await q('UPDATE cajacierre SET ingresosTurno = ?, actualizadoEn = NOW() WHERE id = ?', [montoNuevo, cajaAbierta.id]);
+        }
+      }
 
       // Sincronizar estado con canje asociado (si es un pedido de canje MP)
       const [canjeAsociado] = await q('SELECT id, estado, costoPoints, usuarioId FROM canjeomockapoints WHERE pedidoId = ?', [req.params.id]);
@@ -187,6 +454,10 @@ const AdminController = {
           titulo = icono + ' Pedido #' + pedido.numeroPedido + ' — ' + nuevoEstado;
           mensaje = 'Tu pedido #' + pedido.numeroPedido + ' cambió de "' + (pedido.estadoAnterior || 'Sin estado') + '" a "' + nuevoEstado + '".';
 
+          if (esEntregado && metodoPago) {
+            mensaje += ' Método de pago: ' + metodoPago.nombre + '.';
+          }
+
           // Add points info to notification only when delivered
           if (nuevoEstado === 'Entregado' && pedido.estadoAnterior !== 'Entregado') {
             const total = Number(pedido.total) || 0;
@@ -217,6 +488,170 @@ const AdminController = {
     try {
       const rows = await q('SELECT * FROM estadopedido ORDER BY orden');
       res.json({ estados: rows });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async getMetodosPago(req, res) {
+    try {
+      const rows = await q('SELECT id, nombre, descripcion FROM metodopago WHERE activo = 1 ORDER BY nombre');
+      res.json({ metodosPago: rows });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async createVentaLocal(req, res) {
+    try {
+      const [configLocal] = await q('SELECT abierto FROM configuracion_local WHERE id = "config" LIMIT 1');
+      const localAbierto = !configLocal || Number(configLocal.abierto) === 1;
+      if (!localAbierto) {
+        return res.status(400).json({ error: 'El local está cerrado. No se pueden registrar ventas en local.' });
+      }
+
+      const {
+        clienteNombre,
+        tipoEntrega,
+        metodoPago,
+        notas,
+        items,
+        despacho
+      } = req.body;
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'La venta debe tener al menos un item' });
+      }
+
+      const entrega = (tipoEntrega === 'despacho') ? 'despacho' : 'retiro';
+      const nombreContacto = (clienteNombre || '').trim() || 'Cliente en local';
+      const correoContacto = 'venta-local@dulcemocka.local';
+      let telefonoContacto = '000000000';
+
+      let direccionId = null;
+      let shipping = 0;
+
+      if (entrega === 'despacho') {
+        const tel = (despacho && despacho.telefono ? String(despacho.telefono).trim() : '');
+        const dirTxt = (despacho && despacho.direccion ? String(despacho.direccion).trim() : '');
+        const sectorId = (despacho && despacho.sectorId ? String(despacho.sectorId) : '');
+        const referencia = (despacho && despacho.referencia ? String(despacho.referencia).trim() : null);
+
+        if (!tel || !dirTxt || !sectorId) {
+          return res.status(400).json({ error: 'Para despacho debes ingresar teléfono, dirección y sector' });
+        }
+
+        const [sector] = await q('SELECT id, precioEnvio FROM sector WHERE id = ? AND activo = 1 LIMIT 1', [sectorId]);
+        if (!sector) {
+          return res.status(400).json({ error: 'El sector seleccionado no es válido' });
+        }
+
+        telefonoContacto = tel;
+        shipping = Number(sector.precioEnvio) || 0;
+
+        let calle = dirTxt;
+        let numeroCasa = 'S/N';
+        const m = dirTxt.match(/^(.*)\s+(\d+[A-Za-z0-9\-]*)$/);
+        if (m) {
+          calle = m[1].trim();
+          numeroCasa = m[2].trim();
+        }
+
+        direccionId = uuidv4();
+        await q(
+          'INSERT INTO direccion (id, calle, numeroCasa, sectorId, nota) VALUES (?,?,?,?,?)',
+          [direccionId, calle, numeroCasa, sector.id, referencia]
+        );
+      }
+
+      const [te] = await q(
+        entrega === 'despacho'
+          ? "SELECT id FROM tipoentrega WHERE nombre='Delivery' LIMIT 1"
+          : "SELECT id FROM tipoentrega WHERE nombre='Recogida' LIMIT 1"
+      );
+      const tipoEntregaId = te ? te.id : null;
+
+      const [estadoPendiente] = await q("SELECT id FROM estadopedido WHERE nombre='Pendiente' LIMIT 1");
+      const estadoId = estadoPendiente ? estadoPendiente.id : null;
+
+      const metodoPagoNombreRaw = (metodoPago || 'efectivo').toString().trim().toLowerCase();
+      const aliasMetodoPago = {
+        efectivo: 'efectivo',
+        transferencia: 'transferencia',
+        debito: 'debito',
+        débito: 'debito',
+        credito: 'credito',
+        crédito: 'credito',
+        tarjeta: 'debito'
+      };
+      const metodoPagoNombre = aliasMetodoPago[metodoPagoNombreRaw] || metodoPagoNombreRaw;
+      const [metodoPagoRow] = await q('SELECT id, nombre FROM metodopago WHERE LOWER(nombre) = ? AND activo = 1 LIMIT 1', [metodoPagoNombre]);
+      if (!metodoPagoRow) {
+        return res.status(400).json({ error: 'Método de pago inválido para venta local' });
+      }
+
+      let subtotal = 0;
+      items.forEach(it => {
+        subtotal += (Number(it.precio) || 0) * (Number(it.cantidad) || 1);
+      });
+      const total = subtotal + shipping;
+
+      const pedidoId = uuidv4();
+      const numeroPedido = 'DSM-' + (Math.floor(Math.random() * 900000) + 100000);
+
+      await q(
+        `INSERT INTO pedido (id, numeroPedido, usuarioId, nombreContacto, correoContacto, telefonoContacto,
+         tipoEntregaId, direccionId, metodoPagoId, cuponId, codigoCuponSnapshot, subtotal, total, descuentoTotal, estadoId, creadoEn)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+        [
+          pedidoId,
+          numeroPedido,
+          null,
+          nombreContacto,
+          correoContacto,
+          telefonoContacto,
+          tipoEntregaId,
+          direccionId,
+          metodoPagoRow.id,
+          null,
+          'VENTA LOCAL ADMIN',
+          subtotal,
+          total,
+          0,
+          estadoId
+        ]
+      );
+
+      for (const it of items) {
+        const itemId = uuidv4();
+        const qty = Number(it.cantidad) || 1;
+        const precio = Number(it.precio) || 0;
+        const totalLinea = precio * qty;
+
+        let notasItem = it.notas || '';
+        if (Array.isArray(it.ingredientesQuitados) && it.ingredientesQuitados.length > 0) {
+          const sinList = it.ingredientesQuitados.map(ig => ig.nombre || ig).join(', ');
+          notasItem = (notasItem ? notasItem + ' | ' : '') + 'Sin: ' + sinList;
+        }
+
+        await q(
+          `INSERT INTO pedidoitem (id, pedidoId, productoId, nombreProducto, precioUnitario, cantidad, notasItem, totalLinea)
+           VALUES (?,?,?,?,?,?,?,?)`,
+          [itemId, pedidoId, it.productoId || null, it.nombre || 'Producto', precio, qty, notasItem || null, totalLinea]
+        );
+      }
+
+      res.json({
+        ok: true,
+        pedido: {
+          id: pedidoId,
+          numeroPedido,
+          estado: 'Pendiente',
+          subtotal,
+          envio: shipping,
+          total
+        }
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

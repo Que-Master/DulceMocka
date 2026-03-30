@@ -12,6 +12,83 @@ async function loadOrderById(id){
   } catch { return null; }
 }
 
+function normalizeEstado(estado) {
+  if (!estado) return 'Pendiente';
+  const e = String(estado).toLowerCase().trim();
+  if (e.includes('pendiente')) return 'Pendiente';
+  if (e.includes('preparaci') || e.includes('preparando')) return 'Preparación';
+  if (e.includes('listo') || e.includes('retiro')) return 'Listo para retiro';
+  if (e.includes('camino')) return 'En camino';
+  if (e.includes('entregado')) return 'Entregado';
+  if (e.includes('cancelado')) return 'Cancelado';
+  return estado;
+}
+
+function renderStatusTimeline(estado, tipoEntrega) {
+  const estadoNormalized = normalizeEstado(estado);
+  const isDomicilio = tipoEntrega === 'Delivery';
+  const isCancelado = estadoNormalized === 'Cancelado';
+
+  // Define the journey based on delivery type
+  const journey = isDomicilio
+    ? ['Pendiente', 'Preparación', 'En camino', 'Entregado']
+    : ['Pendiente', 'Preparación', 'Listo para retiro', 'Entregado'];
+
+  if (isCancelado) {
+    return `
+      <div class="order-status-timeline">
+        <h4>Estado del Pedido</h4>
+        <div class="timeline-container">
+          <div class="timeline-step cancelled">
+            <div class="timeline-dot">✕</div>
+            <div class="timeline-label">Cancelado</div>
+          </div>
+        </div>
+        <div class="timeline-cancelled-msg">Este pedido ha sido cancelado</div>
+      </div>`;
+  }
+
+  let currentIndex = journey.indexOf(estadoNormalized);
+  if (currentIndex === -1) {
+    currentIndex = 0;
+  }
+
+  let html = '<div class="order-status-timeline"><h4>Estado del Pedido</h4><div class="timeline-container">';
+
+  journey.forEach((step, idx) => {
+    let stepClass = 'timeline-step';
+    if (idx < currentIndex) {
+      stepClass += ' completed';
+    } else if (idx === currentIndex) {
+      stepClass += ' active';
+    }
+
+    const stepLabel = step;
+    const stepNumber = idx + 1;
+    let dotContent = stepNumber;
+    if (idx <= currentIndex) {
+      dotContent = '✓';
+    }
+
+    html += `
+      <div class="${stepClass}">
+        <div class="timeline-dot">${dotContent}</div>
+        <div class="timeline-label">${stepLabel}</div>
+      </div>`;
+
+    if (idx < journey.length - 1) {
+      let connectorClass = 'timeline-connector';
+      if (idx <= currentIndex) {
+        connectorClass += ' completed';
+      }
+      html += `<div class="${connectorClass}"></div>`;
+    }
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
 function renderOrder(data){
   if(!data || !data.pedido){
     document.getElementById('msg').textContent = 'Pedido no encontrado.';
@@ -21,6 +98,10 @@ function renderOrder(data){
   const order = data.pedido;
   const items = data.items || [];
   const isMockaPointsRedemption = order.codigoCuponSnapshot === 'CANJE MOCKA POINTS';
+
+  /* ── Timeline de estado ── */
+  const statusTimelineHtml = renderStatusTimeline(order.estado, order.tipoEntrega);
+  document.getElementById('orderInfo').insertAdjacentHTML('beforebegin', statusTimelineHtml);
 
   /* ── 1. Información del pedido ── */
   const date = new Date(order.creadoEn || Date.now());
@@ -69,7 +150,7 @@ function renderOrder(data){
       const line   = Number(it.totalLinea) || (precio * qty);
       computedSubtotal += line;
 
-      const notesHtml = it.notasItem ? `<div class="note" style="margin-top:4px">${it.notasItem}</div>` : '';
+      const notesHtml = it.notasItem ? `<div class="note" style="margin-top:4px;font-size:0.85rem;color:#666">${it.notasItem}</div>` : '';
 
       itemsHtml += `
         <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f3f3f3">

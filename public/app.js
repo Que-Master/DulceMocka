@@ -7,6 +7,9 @@ const api = {
 
 const $categories = document.getElementById('categories');
 const $productsGrid = document.getElementById('productsGrid');
+const ui = window.uiDialog;
+const uiAlert = async (msg, title) => { if (ui) return ui.alert(msg, title); };
+const uiConfirm = async (msg, title) => { if (ui) return ui.confirm(msg, title); return true; };
 let categorias = [];
 let productos = [];
 let categoriaActiva = null; // null = todos, 'mockapoints' = canjeable, o categoryId
@@ -29,12 +32,12 @@ async function fetchProductos(categoriaId = null) {
     }
     const res = await fetch(url);
     let prods = await res.json();
-    
-    // Si es filtro de Mocka Points, mostrar solo productos canjeables
+
+    // Solo para categoría real; para mockapoints el botón hace scroll a la sección inferior
     if (categoriaId === 'mockapoints') {
       prods = prods.filter(p => p.costoMockaPoints && p.costoMockaPoints > 0);
     }
-    
+
     productos = prods;
     renderProductos();
   } catch (e) {
@@ -43,30 +46,45 @@ async function fetchProductos(categoriaId = null) {
 }
 
 function renderCategorias() {
+  if (!$categories) return;
   $categories.innerHTML = '';
+
   const allBtn = document.createElement('button');
   allBtn.className = 'pill' + (categoriaActiva === null ? ' active' : '');
   allBtn.textContent = 'Todos';
-  allBtn.onclick = () => { categoriaActiva = null; fetchProductos(null); updateCategoriaActive(); };
+  allBtn.onclick = () => {
+    categoriaActiva = null;
+    fetchProductos(null);
+    updateCategoriaActive();
+  };
   $categories.appendChild(allBtn);
 
-  // Botón especial de Mocka Points
+  // Botón especial de Mocka Points: solo baja a la sección inferior
   const mpBtn = document.createElement('button');
   mpBtn.className = 'pill mp-pill' + (categoriaActiva === 'mockapoints' ? ' active' : '');
   mpBtn.textContent = '🏆 Mocka Points';
-  mpBtn.onclick = () => { categoriaActiva = 'mockapoints'; fetchProductos('mockapoints'); updateCategoriaActive(); };
+  mpBtn.onclick = () => {
+    categoriaActiva = 'mockapoints';
+    updateCategoriaActive();
+    scrollToMockaPointsSection();
+  };
   $categories.appendChild(mpBtn);
 
   categorias.forEach(cat => {
     const btn = document.createElement('button');
     btn.className = 'pill' + (categoriaActiva == cat.id ? ' active' : '');
     btn.textContent = cat.nombre;
-    btn.onclick = () => { categoriaActiva = cat.id; fetchProductos(cat.id); updateCategoriaActive(); };
+    btn.onclick = () => {
+      categoriaActiva = cat.id;
+      fetchProductos(cat.id);
+      updateCategoriaActive();
+    };
     $categories.appendChild(btn);
   });
 }
 
 function updateCategoriaActive() {
+  if (!$categories) return;
   Array.from($categories.children).forEach(btn => btn.classList.remove('active'));
   Array.from($categories.children).forEach(btn => {
     const btnText = btn.textContent;
@@ -80,12 +98,20 @@ function updateCategoriaActive() {
   });
 }
 
+function scrollToMockaPointsSection() {
+  const section = document.getElementById('mockapoints');
+  if (!section) return;
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function renderProductos() {
+  if (!$productsGrid) return;
   $productsGrid.innerHTML = '';
   if (!productos || productos.length === 0) {
     $productsGrid.innerHTML = '<p>No hay productos disponibles.</p>';
     return;
   }
+
   productos.forEach(p => {
     const card = document.createElement('article');
     card.className = 'card product-card';
@@ -94,23 +120,13 @@ function renderProductos() {
     top.className = 'card-top';
     const img = document.createElement('div');
     img.className = 'card-img';
+
     if (p.imagen && (p.imagen.startsWith('http://') || p.imagen.startsWith('https://'))) {
-      top.style.backgroundImage = 'url(' + p.imagen + ')';
-      top.style.backgroundSize = 'cover';
-      top.style.backgroundPosition = 'center';
       top.style.background = 'url(' + p.imagen + ') center/cover no-repeat';
     } else {
       img.textContent = p.emoji || '🍬';
     }
     top.appendChild(img);
-
-    // Badge de Mocka Points si el producto es canjeable
-    if (p.costoMockaPoints && p.costoMockaPoints > 0) {
-      const mpBadge = document.createElement('div');
-      mpBadge.className = 'mp-badge';
-      mpBadge.textContent = '🏆 ' + p.costoMockaPoints + ' pts';
-      top.appendChild(mpBadge);
-    }
 
     const body = document.createElement('div');
     body.className = 'card-body';
@@ -126,6 +142,7 @@ function renderProductos() {
 
     const footer = document.createElement('div');
     footer.className = 'card-footer';
+
     const price = document.createElement('div');
     price.className = 'price';
     price.textContent = p.precio ? formatPrice(p.precio) : '';
@@ -212,11 +229,6 @@ async function initMockaPoints() {
         top.appendChild(imgDiv);
       }
 
-      const pointsBadge = document.createElement('div');
-      pointsBadge.className = 'mp-badge';
-      pointsBadge.textContent = p.costoMockaPoints + ' pts';
-      top.appendChild(pointsBadge);
-
       const body = document.createElement('div');
       body.className = 'card-body';
 
@@ -265,7 +277,7 @@ async function initMockaPoints() {
 }
 
 async function redeemProduct(prod, btn) {
-  if (!confirm('¿Deseas canjear "' + prod.nombre + '" por ' + prod.costoMockaPoints + ' Mocka Points?\n\n⚠️ Solo retiro en tienda')) return;
+  if (!(await uiConfirm('¿Deseas canjear "' + prod.nombre + '" por ' + prod.costoMockaPoints + ' Mocka Points?\n\n⚠️ Solo retiro en tienda', 'Confirmar canje'))) return;
   btn.disabled = true;
   btn.textContent = 'Canjeando...';
   try {
@@ -277,13 +289,14 @@ async function redeemProduct(prod, btn) {
     const data = await res.json();
     if (data.ok) {
       // Mostrar modal/confirmación de canje exitoso
-      const verBoleta = confirm(
+      const verBoleta = await uiConfirm(
         '🏆 ¡CANJE EXITOSO!\n\n' +
         '📦 Producto: ' + data.producto.nombre + '\n' +
         '🎟️ Boleta: #' + data.numeroPedido + '\n' +
         '🏪 Retiro: En tienda\n' +
         '💰 Puntos restantes: ' + data.puntosRestantes + '\n\n' +
-        '¿Deseas ver tu boleta de canje?'
+        '¿Deseas ver tu boleta de canje?',
+        'Canje exitoso'
       );
       if (verBoleta) {
         window.location.href = '/order.html?id=' + data.pedidoId;
@@ -293,23 +306,23 @@ async function redeemProduct(prod, btn) {
     } else {
       // Handle special cases
       if (data.requiresLogin) {
-        if (confirm(data.error + '\n\n¿Deseas iniciar sesión?')) {
+        if (await uiConfirm(data.error + '\n\n¿Deseas iniciar sesión?', 'Iniciar sesión')) {
           window.location.href = '/login.html';
         }
       } else if (data.requiresProfile) {
-        if (confirm(data.error + '\n\n¿Deseas completar tu perfil?')) {
+        if (await uiConfirm(data.error + '\n\n¿Deseas completar tu perfil?', 'Completar perfil')) {
           window.location.href = '/profile.html';
         }
       } else if (data.requiresAge) {
-        alert('⚠️ ' + data.error + '\n\nDebes ser mayor de 18 años para realizar compras o canjes en Dulce Mocka.');
+        await uiAlert('⚠️ ' + data.error + '\n\nDebes ser mayor de 18 años para realizar compras o canjes en Dulce Mocka.', 'Restricción de edad');
       } else {
-        alert(data.error || 'Error al canjear');
+        await uiAlert(data.error || 'Error al canjear', 'Error');
       }
       btn.disabled = false;
       btn.textContent = 'Canjear';
     }
   } catch (e) {
-    alert('Error de conexión');
+    await uiAlert('Error de conexión', 'Error');
     btn.disabled = false;
     btn.textContent = 'Canjear';
   }
@@ -364,13 +377,30 @@ async function initSlider() {
       dotsBox.querySelectorAll('.slider-dot').forEach((d, i) => d.classList.toggle('active', i === current));
     }
 
-    document.getElementById('sliderPrev').addEventListener('click', () => goTo(current - 1));
-    document.getElementById('sliderNext').addEventListener('click', () => goTo(current + 1));
-
     // Auto-play every 5 seconds
     let autoTimer = setInterval(() => goTo(current + 1), 5000);
     container.addEventListener('mouseenter', () => clearInterval(autoTimer));
     container.addEventListener('mouseleave', () => { autoTimer = setInterval(() => goTo(current + 1), 5000); });
+
+    // Swipe en móvil (deslizable con dedo)
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const swipeThreshold = 45;
+
+    container.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].clientX;
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+      touchEndX = e.changedTouches[0].clientX;
+    }, { passive: true });
+
+    container.addEventListener('touchend', () => {
+      const deltaX = touchEndX - touchStartX;
+      if (Math.abs(deltaX) < swipeThreshold) return;
+      if (deltaX < 0) goTo(current + 1);
+      else goTo(current - 1);
+    }, { passive: true });
 
   } catch (e) { /* slider not available, fallback stays */ }
 }
@@ -410,137 +440,3 @@ async function loadEstadoLocal() {
 
 // Llamar al cargar la página
 loadEstadoLocal();
-
-/* ══════════════════════════════════════════
-   NOTIFICACIONES
-   ══════════════════════════════════════════ */
-const notifBell = document.getElementById('notifBell');
-const notifDropdown = document.getElementById('notifDropdown');
-const notifDropdownList = document.getElementById('notifDropdownList');
-const notifBadge = document.getElementById('notifBadge');
-
-// Track dismissed notifications
-function getDismissedNotifs() {
-  try {
-    return JSON.parse(localStorage.getItem('dismissedNotifs') || '[]');
-  } catch (e) { return []; }
-}
-
-function saveDismissedNotif(id) {
-  const dismissed = getDismissedNotifs();
-  if (!dismissed.includes(id)) {
-    dismissed.push(id);
-    localStorage.setItem('dismissedNotifs', JSON.stringify(dismissed));
-  }
-}
-
-async function loadNotificaciones() {
-  try {
-    const res = await fetch('/api/notificaciones');
-    const notifs = await res.json();
-    const dismissed = getDismissedNotifs();
-    
-    // Filter out dismissed notifications for badge count
-    const unread = notifs.filter(n => !dismissed.includes(n.id));
-    
-    // Update badge
-    if (notifBadge) {
-      if (unread.length > 0) {
-        notifBadge.textContent = unread.length > 9 ? '9+' : unread.length;
-        notifBadge.style.display = '';
-      } else {
-        notifBadge.style.display = 'none';
-      }
-    }
-    
-    // Render all notifications
-    if (!notifDropdownList) return;
-    
-    if (!notifs.length) {
-      notifDropdownList.innerHTML = '<p class="notif-empty">No hay notificaciones</p>';
-      return;
-    }
-    
-    notifDropdownList.innerHTML = notifs.map(n => {
-      const isRead = dismissed.includes(n.id);
-      return `
-        <div class="notif-item-card ${isRead ? 'read' : ''}" data-id="${n.id}" ${n.link ? `data-link="${escapeAttr(n.link)}"` : ''}>
-          <h4>${escapeHtml(n.titulo)}</h4>
-          <p>${escapeHtml(n.cuerpo)}</p>
-          <div class="notif-time">${timeAgo(n.creadoEn)}</div>
-        </div>
-      `;
-    }).join('');
-    
-    // Add click handlers
-    notifDropdownList.querySelectorAll('.notif-item-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const id = Number(card.dataset.id);
-        const link = card.dataset.link;
-        saveDismissedNotif(id);
-        card.classList.add('read');
-        updateBadgeCount();
-        if (link) {
-          window.location.href = link;
-        }
-      });
-    });
-  } catch (e) {
-    console.error('Error cargando notificaciones', e);
-  }
-}
-
-function updateBadgeCount() {
-  if (!notifBadge) return;
-  const items = notifDropdownList.querySelectorAll('.notif-item-card:not(.read)');
-  if (items.length > 0) {
-    notifBadge.textContent = items.length > 9 ? '9+' : items.length;
-    notifBadge.style.display = '';
-  } else {
-    notifBadge.style.display = 'none';
-  }
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
-}
-
-function escapeAttr(str) {
-  return (str || '').replace(/"/g, '&quot;');
-}
-
-function timeAgo(dateStr) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diff = Math.floor((now - date) / 1000);
-  
-  if (diff < 60) return 'Hace un momento';
-  if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} hora${Math.floor(diff / 3600) > 1 ? 's' : ''}`;
-  if (diff < 604800) return `Hace ${Math.floor(diff / 86400)} día${Math.floor(diff / 86400) > 1 ? 's' : ''}`;
-  return date.toLocaleDateString('es-CL');
-}
-
-// Toggle dropdown
-if (notifBell && notifDropdown) {
-  notifBell.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    notifDropdown.classList.toggle('open');
-    if (notifDropdown.classList.contains('open')) {
-      loadNotificaciones();
-    }
-  });
-  
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!notifDropdown.contains(e.target) && e.target !== notifBell) {
-      notifDropdown.classList.remove('open');
-    }
-  });
-}
-
-// Load on init
-loadNotificaciones();

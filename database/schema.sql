@@ -28,6 +28,15 @@ CREATE TABLE IF NOT EXISTS tipoentrega (
   descripcion TEXT
 );
 
+-- Métodos de pago
+CREATE TABLE IF NOT EXISTS metodopago (
+  id VARCHAR(36) NOT NULL PRIMARY KEY,
+  nombre VARCHAR(50) NOT NULL UNIQUE,
+  descripcion TEXT,
+  activo TINYINT(1) DEFAULT 1,
+  creadoEn DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Estados de pedido
 CREATE TABLE IF NOT EXISTS estadopedido (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -175,6 +184,7 @@ CREATE TABLE IF NOT EXISTS pedido (
   correoContacto VARCHAR(150),
   telefonoContacto VARCHAR(20),
   tipoEntregaId VARCHAR(36),
+  metodoPagoId VARCHAR(36),
   direccionId VARCHAR(36),
   cuponId VARCHAR(36),
   codigoCuponSnapshot VARCHAR(50),
@@ -187,6 +197,7 @@ CREATE TABLE IF NOT EXISTS pedido (
   actualizadoEn DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (usuarioId) REFERENCES usuario(id) ON DELETE SET NULL,
   FOREIGN KEY (tipoEntregaId) REFERENCES tipoentrega(id) ON DELETE SET NULL,
+  FOREIGN KEY (metodoPagoId) REFERENCES metodopago(id) ON DELETE SET NULL,
   FOREIGN KEY (direccionId) REFERENCES direccion(id) ON DELETE SET NULL,
   FOREIGN KEY (cuponId) REFERENCES cupon(id) ON DELETE SET NULL,
   FOREIGN KEY (estadoId) REFERENCES estadopedido(id) ON DELETE SET NULL
@@ -282,4 +293,5 @@ CREATE INDEX idx_producto_categoriaId ON producto(categoriaId);
 CREATE INDEX idx_producto_slug ON producto(slug);
 CREATE INDEX idx_pedido_usuarioId ON pedido(usuarioId);
 CREATE INDEX idx_pedido_estadoId ON pedido(estadoId);
+CREATE INDEX idx_pedido_metodoPagoId ON pedido(metodoPagoId);
 CREATE INDEX idx_notificacion_usuarioId ON notificacion(usuarioId);

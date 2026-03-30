@@ -1,5 +1,9 @@
 // public/profile.js — lógica del perfil de usuario
 (async function () {
+  const ui = window.uiDialog;
+  const uiAlert = async (msg, title) => { if (ui) return ui.alert(msg, title); };
+  const uiConfirm = async (msg, title) => { if (ui) return ui.confirm(msg, title); return true; };
+
   /* ── Auth check ── */
   const authRes = await fetch('/api/auth/me');
   const authData = await authRes.json();
@@ -199,13 +203,13 @@
     if (!btn) return;
 
     if (btn.dataset.delete) {
-      if (!confirm('¿Estás seguro de eliminar esta dirección?')) return;
+      if (!(await uiConfirm('¿Estás seguro de eliminar esta dirección?', 'Confirmar eliminación'))) return;
       try {
         const res = await fetch('/api/perfil/direcciones/' + btn.dataset.delete, { method: 'DELETE' });
         const data = await res.json();
         if (data.ok) loadAddresses();
-        else alert(data.error || 'Error al eliminar');
-      } catch (err) { alert('Error de conexión'); }
+        else await uiAlert(data.error || 'Error al eliminar', 'Error');
+      } catch (err) { await uiAlert('Error de conexión', 'Error'); }
     }
 
     if (btn.dataset.setPrincipal) {
@@ -213,8 +217,8 @@
         const res = await fetch('/api/perfil/direcciones/' + btn.dataset.setPrincipal + '/principal', { method: 'PATCH' });
         const data = await res.json();
         if (data.ok) loadAddresses();
-        else alert(data.error || 'Error');
-      } catch (err) { alert('Error de conexión'); }
+        else await uiAlert(data.error || 'Error', 'Error');
+      } catch (err) { await uiAlert('Error de conexión', 'Error'); }
     }
 
     if (btn.dataset.edit) {
@@ -222,7 +226,7 @@
         const res = await fetch('/api/perfil/direcciones/' + btn.dataset.edit);
         const data = await res.json();
         if (data.direccion) openAddressModal(data.direccion);
-      } catch (err) { alert('Error al cargar dirección'); }
+      } catch (err) { await uiAlert('Error al cargar dirección', 'Error'); }
     }
   }
 
@@ -362,7 +366,7 @@
       // Delete buttons
       grid.querySelectorAll('.coupon-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!confirm('¿Eliminar este cupón de tu cuenta?')) return;
+          if (!(await uiConfirm('¿Eliminar este cupón de tu cuenta?', 'Confirmar eliminación'))) return;
           try {
             await fetch('/api/perfil/cupones/' + btn.dataset.id, { method: 'DELETE' });
             loadCoupons();

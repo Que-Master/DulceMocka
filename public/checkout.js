@@ -1,6 +1,8 @@
 // public/checkout.js
 const coCurrency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' });
 function coFmt(v){ return coCurrency.format(Number(v)||0); }
+const ui = window.uiDialog;
+const uiAlert = async (msg, title) => { if (ui) return ui.alert(msg, title); };
 
 function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')) || []; }catch{ return []; } }
 
@@ -297,7 +299,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async functio
 
   // snapshot cart FIRST
   const cartItems = getCart();
-  if(!cartItems.length){ alert('Tu carrito está vacío. Agrega productos antes de pedir.'); return; }
+  if(!cartItems.length){ await uiAlert('Tu carrito está vacío. Agrega productos antes de pedir.', 'Carrito'); return; }
 
   // Verificar si el local está abierto
   try {
@@ -310,7 +312,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async functio
       }
       msg += 'Horario de atención: ' + estadoData.horaApertura + ' - ' + estadoData.horaCierre + '\n\n';
       msg += 'Puedes guardar tu carrito y completar tu pedido cuando abramos.';
-      alert(msg);
+      await uiAlert(msg, 'Local cerrado');
       return;
     }
   } catch (err) {
@@ -321,7 +323,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async functio
   const email    = document.getElementById('email').value.trim();
   const telefono = document.getElementById('telefono').value.trim();
   const delivery = document.querySelector('input[name="delivery"]:checked').value;
-  if(!nombre || !email || !telefono){ alert('Por favor completa los campos obligatorios'); return; }
+  if(!nombre || !email || !telefono){ await uiAlert('Por favor completa los campos obligatorios', 'Campos obligatorios'); return; }
 
   // compute subtotal from items
   let subtotalVal = 0;
@@ -384,7 +386,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async functio
       if (data.requiresAge) {
         msg.textContent = '⚠️ ' + data.error;
         msg.style.color = '#ef4444';
-        alert('⚠️ Restricción de edad\\n\\n' + data.error + '\\n\\nDebes actualizar tu fecha de nacimiento en tu perfil si crees que hay un error.');
+        await uiAlert('⚠️ Restricción de edad\\n\\n' + data.error + '\\n\\nDebes actualizar tu fecha de nacimiento en tu perfil si crees que hay un error.', 'Restricción de edad');
       } else {
         msg.textContent = data.error || 'Error al crear pedido'; 
         msg.style.color = '#ef4444'; 

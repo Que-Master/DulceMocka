@@ -68,7 +68,11 @@
       const res = await fetch('/api/notificaciones');
       if (!res.ok) return;
       const data = await res.json();
-      renderNotificaciones(data.notificaciones || [], data.sinLeer || 0);
+      const notifs = Array.isArray(data) ? data : (data.notificaciones || []);
+      const sinLeer = Array.isArray(data)
+        ? notifs.filter(n => !n.leida).length
+        : (data.sinLeer || 0);
+      renderNotificaciones(notifs, sinLeer);
     } catch (e) { /* silent */ }
   }
 
@@ -92,22 +96,32 @@
     list.innerHTML = notifs.map(n => {
       const cls = n.leida ? 'notif-item read' : 'notif-item unread';
       const time = timeAgo(n.creadoEn);
+      const mensaje = n.mensaje || n.cuerpo || '';
       const cancelInfo = n.motivoCancelacion
         ? '<div class="notif-cancel-reason"><strong>Motivo:</strong> ' + esc(n.motivoCancelacion) + '</div>'
         : '';
+      const actions = n.esGlobal
+        ? ''
+        : '<div class="notif-actions">' +
+            (!n.leida ? '<button class="notif-action-btn" data-mark-read="' + n.id + '" title="Marcar como leída">✓</button>' : '') +
+            '<button class="notif-action-btn del" data-delete-notif="' + n.id + '" title="Eliminar">✕</button>' +
+          '</div>';
 
-      return '<div class="' + cls + '" data-notif-id="' + n.id + '"' +
-        (n.pedidoId ? ' data-pedido-id="' + n.pedidoId + '"' : '') + '>' +
+      const attrs = [
+        'class="' + cls + '"',
+        'data-notif-id="' + n.id + '"'
+      ];
+      if (n.pedidoId) attrs.push('data-pedido-id="' + n.pedidoId + '"');
+      if (n.link) attrs.push('data-link="' + escAttr(n.link) + '"');
+
+      return '<div ' + attrs.join(' ') + '>' +
         '<div class="notif-content">' +
           '<div class="notif-title">' + esc(n.titulo) + '</div>' +
-          '<div class="notif-msg">' + esc(n.mensaje) + '</div>' +
+          '<div class="notif-msg">' + esc(mensaje) + '</div>' +
           cancelInfo +
           '<div class="notif-time">' + time + '</div>' +
         '</div>' +
-        '<div class="notif-actions">' +
-          (!n.leida ? '<button class="notif-action-btn" data-mark-read="' + n.id + '" title="Marcar como leída">✓</button>' : '') +
-          '<button class="notif-action-btn del" data-delete-notif="' + n.id + '" title="Eliminar">✕</button>' +
-        '</div>' +
+        actions +
       '</div>';
     }).join('');
 
@@ -136,6 +150,14 @@
         window.location.href = '/order.html?id=' + pid;
       });
     });
+
+    list.querySelectorAll('[data-link]').forEach(item => {
+      if (item.dataset.pedidoId) return;
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', () => {
+        window.location.href = item.dataset.link;
+      });
+    });
   }
 
   function timeAgo(dateStr) {
@@ -154,4 +176,5 @@
   }
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+  function escAttr(s) { return String(s || '').replace(/"/g, '&quot;'); }
 })();

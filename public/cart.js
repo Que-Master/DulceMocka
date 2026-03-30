@@ -1,6 +1,8 @@
 // public/cart.js
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' });
 function fmt(v){ return currency.format(Number(v)||0); }
+const ui = window.uiDialog;
+const uiAlert = async (msg, title) => { if (ui) return ui.alert(msg, title); };
 
 function getCart(){ try{return JSON.parse(localStorage.getItem('cart'))||[];}catch{return [];} }
 function saveCart(c){ localStorage.setItem('cart', JSON.stringify(c)); }
@@ -155,9 +157,12 @@ function validateCouponAfterCartChange() {
   }
 }
 
-document.getElementById('checkoutBtn').addEventListener('click', ()=>{
+document.getElementById('checkoutBtn').addEventListener('click', async ()=>{
   const cart = getCart();
-  if(!cart || cart.length===0) return alert('El carrito está vacío');
+  if(!cart || cart.length===0) {
+    await uiAlert('El carrito está vacío', 'Carrito');
+    return;
+  }
   // Save applied coupon to localStorage for checkout
   if (appliedCoupon) {
     localStorage.setItem('appliedCoupon', JSON.stringify(appliedCoupon));

@@ -18,21 +18,41 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-section="dashboard">📊 Dashboard</button>
-        <button class="nav-item" data-section="orders">📦 Pedidos</button>
-        <button class="nav-item" data-section="products">🧃 Productos</button>
-        <button class="nav-item" data-section="categories">📂 Categorías</button>
-        <button class="nav-item" data-section="users">👥 Usuarios</button>
-        <button class="nav-item" data-section="sectors">📍 Sectores</button>
-        <button class="nav-item" data-section="coupons">🎟️ Cupones</button>
-        <button class="nav-item" data-section="ingredients">🧪 Ingredientes</button>
-        <button class="nav-item" data-section="slider">🖼️ Slider</button>
-        <button class="nav-item" data-section="canjes">🏆 Canjes</button>
+        <button class="nav-item active" data-section="dashboard"><img src="/assets/icons/dashboardIcon.png" class="admin-icon admin-icon-sm" alt=""> Dashboard</button>
+        <button class="nav-item" data-section="ventas"><img src="/assets/icons/ingresosIcon.png" class="admin-icon admin-icon-sm" alt=""> Venta</button>
+        <button class="nav-item" data-section="orders"><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-sm" alt=""> Pedidos</button>
+        <button class="nav-item" data-section="canjes"><img src="/assets/icons/trofeoIcon.png" class="admin-icon admin-icon-sm" alt=""> Canjes</button>
+        <button class="nav-item" data-section="ingresos"><img src="/assets/icons/ingresosIcon.png" class="admin-icon admin-icon-sm" alt=""> Ingresos</button>
+
+        <div class="nav-group open" data-group="producto">
+          <button class="nav-group-toggle" type="button" data-target-group="producto">
+            <span><img src="/assets/icons/productosIcon.png" class="admin-icon admin-icon-sm" alt=""> Producto</span>
+            <span class="nav-group-arrow">▾</span>
+          </button>
+          <div class="nav-group-items">
+            <button class="nav-item" data-section="products"><img src="/assets/icons/productosIcon.png" class="admin-icon admin-icon-sm" alt=""> Productos</button>
+            <button class="nav-item" data-section="categories"><img src="/assets/icons/categoriasIcon.png" class="admin-icon admin-icon-sm" alt=""> Categorías</button>
+            <button class="nav-item" data-section="ingredients"><img src="/assets/icons/ingredientesIcon.png" class="admin-icon admin-icon-sm" alt=""> Ingredientes</button>
+          </div>
+        </div>
+
+        <div class="nav-group" data-group="administracion">
+          <button class="nav-group-toggle" type="button" data-target-group="administracion">
+            <span><img src="/assets/icons/usuariosIcon.png" class="admin-icon admin-icon-sm" alt=""> Administración</span>
+            <span class="nav-group-arrow">▾</span>
+          </button>
+          <div class="nav-group-items">
+            <button class="nav-item" data-section="users"><img src="/assets/icons/usuariosIcon.png" class="admin-icon admin-icon-sm" alt=""> Usuarios</button>
+            <button class="nav-item" data-section="coupons"><img src="/assets/icons/cuponIcon.png" class="admin-icon admin-icon-sm" alt=""> Cupones</button>
+            <button class="nav-item" data-section="sectors"><img src="/assets/icons/sectoresIcon.png" class="admin-icon admin-icon-sm" alt=""> Sectores</button>
+            <button class="nav-item" data-section="slider"><img src="/assets/icons/sliderIcon.png" class="admin-icon admin-icon-sm" alt=""> Slider</button>
+          </div>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
         <a href="/" class="nav-item">🏠 Ir a la tienda</a>
-        <button class="nav-item logout" id="adminLogout">🚪 Cerrar sesión</button>
+        <button class="nav-item logout" id="adminLogout"><img src="/assets/icons/cerrarSesionIcon.png" class="admin-icon admin-icon-sm" alt=""> Cerrar sesión</button>
       </div>
     </aside>
 
@@ -43,7 +63,7 @@
         <h2 id="sectionTitle">Dashboard</h2>
         <div class="topbar-actions">
           <button class="topbar-btn" id="btnNotificaciones" title="Enviar notificación">
-            🔔 <span class="topbar-btn-text">Notificaciones</span>
+            <img src="/assets/icons/notificacionIcon.png" class="admin-icon admin-icon-sm" alt=""> <span class="topbar-btn-text">Notificaciones</span>
           </button>
         </div>
         <div class="topbar-user">
@@ -58,24 +78,53 @@
         <section class="section active" id="sec-dashboard">
           <div class="stats-grid" id="statsGrid"></div>
           <div class="dash-grid">
-            <div class="card"><h3>Pedidos por estado</h3><div id="ordersByStatus"></div></div>
-            <div class="card"><h3>Top 5 productos</h3><div id="topProducts"></div></div>
-          </div>
-          <div class="dash-grid">
-            <div class="card"><h3>Ventas últimos 7 días</h3><div id="salesWeek"></div></div>
+            <div class="card" id="cajaCard">
+              <h3><img src="/assets/icons/ingresosIcon.png" class="admin-icon admin-icon-sm" alt=""> Caja</h3>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+                <div>
+                  <div id="cajaEstado" style="font-weight:700;color:#6b7280">Caja cerrada</div>
+                  <div id="cajaAperturaInfo" style="font-size:.88rem;color:#666;margin-top:.25rem">Apertura: —</div>
+                </div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                  <button class="btn small outline" id="cajaAbrirBtn">Abrir caja</button>
+                  <button class="btn small outline" id="cajaCerrarBtn">Cerrar caja</button>
+                </div>
+              </div>
+              <div style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap;margin-top:.8rem">
+                <div>
+                  <label for="cajaFechaCierre" style="font-size:.78rem;color:#777">Fecha de cierre</label>
+                  <input type="date" id="cajaFechaCierre" style="display:block;padding:.45rem .6rem;border:1px solid #ddd;border-radius:8px">
+                </div>
+                <button class="btn small outline" id="cajaReimprimirBtn">Reimprimir cierre</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-top:1rem">
+                <div>
+                  <div style="font-size:.78rem;color:#777">Monto apertura</div>
+                  <div id="cajaMontoApertura" style="font-weight:800;font-size:1.05rem">$0</div>
+                </div>
+                <div>
+                  <div style="font-size:.78rem;color:#777">Ingresos del turno</div>
+                  <div id="cajaIngresosTurno" style="font-weight:800;font-size:1.05rem">$0</div>
+                </div>
+                <div>
+                  <div style="font-size:.78rem;color:#777">Cierre calculado</div>
+                  <div id="cajaMontoCierre" style="font-weight:800;font-size:1.05rem">$0</div>
+                </div>
+              </div>
+            </div>
             <!-- Configuración de Horario -->
             <div class="card" id="horarioCard">
-              <h3>🕐 Estado del Local</h3>
+              <h3><img src="/assets/icons/estadoLocalIcon.png" class="admin-icon admin-icon-sm" alt=""> Estado del Local</h3>
               <div id="localEstado" style="margin:.75rem 0">
-                <span class="badge badge-success" id="badgeAbierto" style="display:none;font-size:1rem;padding:.5rem 1rem">🟢 ABIERTO</span>
-                <span class="badge badge-danger" id="badgeCerrado" style="display:none;font-size:1rem;padding:.5rem 1rem">🔴 CERRADO</span>
+                <span class="badge badge-success" id="badgeAbierto" style="display:none;font-size:1rem;padding:.5rem 1rem"><img src="/assets/icons/localAbiertoIcon.png" class="admin-icon admin-icon-xs" alt=""> ABIERTO</span>
+                <span class="badge badge-danger" id="badgeCerrado" style="display:none;font-size:1rem;padding:.5rem 1rem"><img src="/assets/icons/localCerradoIcon.png" class="admin-icon admin-icon-xs" alt=""> CERRADO</span>
               </div>
               <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
-                <button class="btn" id="btnAbrirLocal" style="background:#27ae60">🔓 Abrir Local</button>
-                <button class="btn" id="btnCerrarLocal" style="background:#e74c3c">🔒 Cerrar Local</button>
+                <button class="btn" id="btnAbrirLocal" style="background:#27ae60"><img src="/assets/icons/localAbiertoIcon.png" class="admin-icon admin-icon-sm" alt=""> Abrir Local</button>
+                <button class="btn" id="btnCerrarLocal" style="background:#e74c3c"><img src="/assets/icons/localCerradoIcon.png" class="admin-icon admin-icon-sm" alt=""> Cerrar Local</button>
               </div>
               <div style="border-top:1px solid #eee;padding-top:1rem">
-                <h4 style="margin:0 0 .75rem;font-size:.95rem">⏰ Horario Programado</h4>
+                <h4 style="margin:0 0 .75rem;font-size:.95rem"><img src="/assets/icons/horarioProgramadoIcon.png" class="admin-icon admin-icon-sm" alt=""> Horario Programado</h4>
                 <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
                   <div>
                     <label style="font-size:.8rem;color:#666">Apertura:</label><br>
@@ -85,14 +134,17 @@
                     <label style="font-size:.8rem;color:#666">Cierre:</label><br>
                     <input type="time" id="horaCierre" value="20:00" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
                   </div>
-                  <button class="btn small outline" id="btnGuardarHorario">💾 Guardar</button>
-                  <button class="btn small outline" id="btnUsarHorario">🔄 Usar horario automático</button>
+                  <button class="btn small outline" id="btnGuardarHorario"><img src="/assets/icons/guardarIcon.png" class="admin-icon admin-icon-sm" alt=""> Guardar</button>
+                  <button class="btn small outline" id="btnUsarHorario"><img src="/assets/icons/refreshIcon.png" class="admin-icon admin-icon-sm" alt=""> Usar horario automático</button>
                 </div>
                 <p id="horarioInfo" style="font-size:.8rem;color:#888;margin-top:.5rem"></p>
               </div>
             </div>
           </div>
-          <div class="card"><h3>Pedidos recientes</h3><div id="recentOrders"></div></div>
+          <div class="dash-grid">
+            <div class="card"><h3>Pedidos por estado</h3><div id="ordersByStatus"></div></div>
+            <div class="card"><h3>Top 5 productos</h3><div id="topProducts"></div></div>
+          </div>
         </section>
 
         <!-- ─── PEDIDOS ─── -->
@@ -100,9 +152,9 @@
           <div class="section-header">
             <h3>Gestión de Pedidos</h3>
             <div class="filter-tabs" id="ordersFilter">
-              <button class="filter-tab active" data-filter="proceso">📋 En proceso</button>
-              <button class="filter-tab" data-filter="finalizados">✅ Finalizados</button>
-              <button class="filter-tab" data-filter="todos">📦 Todos</button>
+              <button class="filter-tab active" data-filter="proceso"><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-xs" alt=""> En proceso</button>
+              <button class="filter-tab" data-filter="finalizados"><img src="/assets/icons/guardarIcon.png" class="admin-icon admin-icon-xs" alt=""> Finalizados</button>
+              <button class="filter-tab" data-filter="todos"><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-xs" alt=""> Todos</button>
             </div>
           </div>
           <div class="filters-row" style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">            <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:200px;max-width:300px">
@@ -145,6 +197,20 @@
                 <div class="form-actions" style="margin-top:1rem;display:flex;gap:.5rem;justify-content:flex-end">
                   <button type="button" class="btn outline" data-close="cancelModal">Volver</button>
                   <button type="button" class="btn" id="confirmCancelBtn" style="background:#e74c3c">Confirmar cancelación</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Método de pago al entregar -->
+          <div class="modal-overlay" id="metodoPagoModal">
+            <div class="modal-card">
+              <div class="modal-header"><h3>Método de pago</h3><button class="modal-close" data-close="metodoPagoModal">✕</button></div>
+              <div style="padding:1.5rem">
+                <p style="margin-bottom:1rem;color:#555">Selecciona el método de pago para marcar este pedido como entregado:</p>
+                <div id="metodoPagoOptions" style="display:flex;flex-direction:column;gap:.6rem"></div>
+                <div class="form-actions" style="margin-top:1rem;display:flex;gap:.5rem;justify-content:flex-end">
+                  <button type="button" class="btn outline" data-close="metodoPagoModal">Cancelar</button>
+                  <button type="button" class="btn" id="confirmMetodoPagoBtn">Guardar</button>
                 </div>
               </div>
             </div>
@@ -374,6 +440,235 @@
           </tr></thead><tbody></tbody></table></div>
         </section>
 
+        <!-- ─── INGRESOS DINÁMICOS ─── -->
+        <section class="section" id="sec-ingresos">
+          <div class="section-header">
+            <h3><img src="/assets/icons/ingresosIcon.png" class="nav-icon" alt="Ingresos"> Reporte Dinámico de Ingresos</h3>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <button class="btn small outline" id="ingresosApplyBtn">Aplicar filtro</button>
+              <button class="btn small outline" id="ingresosClearBtn">Limpiar filtros</button>
+              <button class="btn small" id="ingresosExportBtn">Exportar Excel</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;align-items:end">
+              <div>
+                <label for="ingresosStart" style="font-size:.85rem;color:#555">Fecha inicio</label>
+                <input type="datetime-local" id="ingresosStart" style="width:100%;padding:.5rem;border:1px solid #ddd;border-radius:8px">
+              </div>
+              <div>
+                <label for="ingresosEnd" style="font-size:.85rem;color:#555">Fecha fin</label>
+                <input type="datetime-local" id="ingresosEnd" style="width:100%;padding:.5rem;border:1px solid #ddd;border-radius:8px">
+              </div>
+              <div>
+                <div id="ingresosGroupInfo" style="font-size:.88rem;color:#666">Agrupación automática: —</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="ingresosSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1rem"></div>
+
+          <div class="dash-grid" style="margin-bottom:1rem">
+            <div class="card">
+              <h3>Totales por Método de Pago</h3>
+              <div id="ingresosByMethod"></div>
+            </div>
+            <div class="card">
+              <h3>Cierre de Caja (agrupado)</h3>
+              <div id="ingresosBreakdown"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Detalle de Transacciones</h3>
+            <div id="ingresosDetail"></div>
+          </div>
+        </section>
+
+        <!-- ─── VENTAS EN LOCAL ─── -->
+        <section class="section" id="sec-ventas">
+          <div class="section-header">
+            <h3><img src="/assets/icons/ingresosIcon.png" class="nav-icon" alt="Ventas"> Nueva Venta en Local</h3>
+          </div>
+
+          <div class="ventas-grid">
+            <!-- Panel de productos -->
+            <div class="ventas-productos card">
+              <div class="ventas-productos-header">
+                <h4><img src="/assets/icons/productosIcon.png" class="admin-icon admin-icon-sm" alt=""> Agregar Productos</h4>
+              </div>
+              <div class="ventas-search-box">
+                <input type="text" id="ventaSearchInput" placeholder="🔍 Buscar producto..." class="ventas-search" />
+              </div>
+              <div class="ventas-productos-list" id="ventasProductosList">
+                <!-- Productos se cargan dinámicamente -->
+              </div>
+            </div>
+
+            <!-- Panel del carrito -->
+            <aside class="ventas-carrito card">
+              <div class="ventas-carrito-header">
+                <h4><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-sm" alt=""> Carrito de Venta</h4>
+                <button class="btn small outline" id="ventaClearBtn" title="Vaciar carrito"><img src="/assets/icons/localCerradoIcon.png" class="admin-icon admin-icon-sm" alt=""> Vaciar</button>
+              </div>
+
+              <div class="ventas-carrito-items" id="ventaCartItems">
+                <div class="ventas-empty-cart">
+                  <span class="empty-icon">🛒</span>
+                  <p>El carrito está vacío</p>
+                  <small>Agrega productos desde la lista</small>
+                </div>
+              </div>
+
+              <div class="ventas-carrito-footer">
+                <!-- Datos del cliente -->
+                <div class="ventas-cliente-form">
+                  <div class="ventas-form-row">
+                    <label for="ventaClienteNombre"><img src="/assets/icons/usuariosIcon.png" class="admin-icon admin-icon-xs" alt=""> Cliente (opcional)</label>
+                    <input type="text" id="ventaClienteNombre" placeholder="Nombre del cliente" class="ventas-input" />
+                  </div>
+                  <div class="ventas-form-row">
+                    <label for="ventaTipoEntrega"><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-xs" alt=""> Tipo de entrega</label>
+                    <div class="ventas-delivery-toggle">
+                      <button type="button" class="ventas-delivery-btn active" data-tipo="retiro">
+                        Retiro en local
+                      </button>
+                      <button type="button" class="ventas-delivery-btn" data-tipo="despacho">
+                        Despacho a domicilio
+                      </button>
+                    </div>
+                    <input type="hidden" id="ventaTipoEntrega" value="retiro" />
+                  </div>
+                  <div class="ventas-form-row">
+                    <label for="ventaMetodoPago"><img src="/assets/icons/ingresosIcon.png" class="admin-icon admin-icon-xs" alt=""> Método de pago</label>
+                    <select id="ventaMetodoPago" class="ventas-select">
+                      <option value="efectivo">💵 Efectivo</option>
+                      <option value="transferencia">🏦 Transferencia</option>
+                      <option value="debito">💳 Débito</option>
+                      <option value="credito">💳 Crédito</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="ventas-summary">
+                  <div class="ventas-summary-row">
+                    <span>Subtotal:</span>
+                    <span class="ventas-subtotal" id="ventaSubtotal">$0</span>
+                  </div>
+                  <div class="ventas-summary-row" id="ventaShippingRow" style="display:none">
+                    <span>Envío:</span>
+                    <span class="ventas-shipping" id="ventaShipping">$0</span>
+                  </div>
+                  <div class="ventas-summary-row ventas-total-row">
+                    <span>Total:</span>
+                    <span class="ventas-total" id="ventaTotal">$0</span>
+                  </div>
+                </div>
+                <button class="btn ventas-crear-btn" id="ventaCreateBtn">
+                  <img src="/assets/icons/guardarIcon.png" class="admin-icon admin-icon-sm" alt=""> Finalizar Venta
+                </button>
+                <div id="ventaMsg" class="ventas-msg"></div>
+              </div>
+            </aside>
+          </div>
+
+          <!-- Select y cantidad ocultos para compatibilidad -->
+          <select id="ventaProductoSelect" style="display:none"></select>
+          <input id="ventaCantidadCompat" type="hidden" value="1" />
+          <button id="ventaAddBtn" style="display:none"></button>
+          <table id="ventaCartTable" style="display:none"><tbody></tbody></table>
+        </section>
+
+        <!-- Modal de Despacho -->
+        <div class="modal-overlay" id="despachoModal">
+          <div class="modal despacho-modal">
+            <div class="modal-header">
+              <h3><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-sm" alt=""> Datos de Despacho</h3>
+              <button class="modal-close" data-close="despachoModal">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="despacho-form">
+                <div class="despacho-form-row">
+                  <label for="despachoTelefono">📞 Teléfono *</label>
+                  <input type="tel" id="despachoTelefono" placeholder="+56 9 1234 5678" class="despacho-input" required />
+                </div>
+                <div class="despacho-form-row">
+                  <label for="despachoDireccion">📍 Dirección *</label>
+                  <input type="text" id="despachoDireccion" placeholder="Calle, número, depto/casa" class="despacho-input" required />
+                </div>
+                <div class="despacho-form-row">
+                  <label for="despachoSector">🗺️ Sector *</label>
+                  <select id="despachoSector" class="despacho-select" required>
+                    <option value="">-- Seleccionar sector --</option>
+                  </select>
+                </div>
+                <div class="despacho-form-row">
+                  <label for="despachoReferencia">🏠 Referencia (opcional)</label>
+                  <input type="text" id="despachoReferencia" placeholder="Ej: Casa azul, frente al parque..." class="despacho-input" />
+                </div>
+                <div class="despacho-costo-row">
+                  <span>Costo de envío:</span>
+                  <span class="despacho-costo" id="despachoCosto">Por definir</span>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn outline" data-close="despachoModal">Cancelar</button>
+              <button class="btn" id="despachoConfirmBtn"><img src="/assets/icons/guardarIcon.png" class="admin-icon admin-icon-sm" alt=""> Confirmar Despacho</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Personalización de Producto -->
+        <div class="modal-overlay" id="ventaProductoModal">
+          <div class="modal-card" style="max-width:500px">
+            <div class="modal-header">
+              <h3 id="ventaProductoTitulo"><img src="/assets/icons/productosIcon.png" class="admin-icon admin-icon-sm" alt=""> Personalizar Producto</h3>
+              <button class="modal-close" data-close="ventaProductoModal">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="venta-producto-info">
+                <div class="venta-producto-img-lg" id="ventaProductoImg">🧋</div>
+                <div class="venta-producto-details">
+                  <h4 id="ventaProductoNombre">Producto</h4>
+                  <p id="ventaProductoDesc" class="venta-producto-desc-modal"></p>
+                  <span class="venta-producto-precio-lg" id="ventaProductoPrecio">$0</span>
+                </div>
+              </div>
+
+              <div class="venta-ingredientes-section" id="ventaIngredientesSection" style="display:none">
+                <h4><img src="/assets/icons/ingredientesIcon.png" class="admin-icon admin-icon-sm" alt=""> Personaliza los ingredientes</h4>
+                <p class="hint-text">Marca o desmarca según la preferencia del cliente</p>
+                <div class="venta-ingredientes-list" id="ventaIngredientesList"></div>
+              </div>
+
+              <div class="venta-cantidad-section">
+                <label>📦 Cantidad:</label>
+                <div class="venta-qty-control">
+                  <button type="button" class="qty-btn" id="ventaQtyMinus">−</button>
+                  <input type="number" id="ventaCantidad" value="1" min="1" class="qty-input">
+                  <button type="button" class="qty-btn" id="ventaQtyPlus">+</button>
+                </div>
+              </div>
+
+              <div class="venta-notas-section">
+                <label>📝 Notas especiales:</label>
+                <textarea id="ventaProductoNotas" placeholder="Ej: Sin azúcar, extra frío..." rows="2"></textarea>
+              </div>
+
+              <div class="venta-modal-total">
+                <span>Subtotal:</span>
+                <span id="ventaModalSubtotal">$0</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn outline" data-close="ventaProductoModal">Cancelar</button>
+              <button class="btn" id="ventaProductoConfirmBtn"><img src="/assets/icons/guardarIcon.png" class="admin-icon admin-icon-sm" alt=""> Agregar al Carrito</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
@@ -382,7 +677,7 @@
   <div class="modal-backdrop" id="notifModalBackdrop" style="display:none">
     <div class="modal" style="max-width:600px">
       <div class="modal-header">
-        <h3>🔔 Gestión de Notificaciones</h3>
+        <h3><img src="/assets/icons/notificacionIcon.png" class="admin-icon admin-icon-sm" alt=""> Gestión de Notificaciones</h3>
         <button class="modal-close" id="closeNotifModal">×</button>
       </div>
       <div class="modal-body">
@@ -403,7 +698,7 @@
               <input type="text" id="notifLink" placeholder="Ej: /product.html?id=5 o https://...">
             </div>
             <div class="form-actions">
-              <button type="submit" class="btn">📤 Enviar Notificación</button>
+              <button type="submit" class="btn"><img src="/assets/icons/notificacionIcon.png" class="admin-icon admin-icon-sm" alt=""> Enviar Notificación</button>
             </div>
             <span class="form-msg" id="notifMsg"></span>
           </form>
@@ -417,6 +712,7 @@
     </div>
   </div>
 
+  <script src="/ui-dialog.js"></script>
   <script src="/admin.js"></script>
 </body>
 </html>

@@ -9,12 +9,20 @@ router.use(requireAdmin);
 
 // Dashboard
 router.get('/dashboard', admin.dashboard);
+router.get('/ingresos', admin.getIngresosReport);
+router.get('/ingresos/export', admin.exportIngresosExcel);
+router.get('/caja/estado', admin.getCajaEstado);
+router.post('/caja/abrir', admin.abrirCaja);
+router.post('/caja/cerrar', admin.cerrarCaja);
+router.get('/caja/cierres', admin.getCierresByFecha);
 
 // Pedidos
 router.get('/pedidos', admin.getOrders);
 router.get('/pedidos/:id', admin.getOrderDetail);
 router.patch('/pedidos/:id/estado', admin.updateOrderStatus);
 router.get('/estados', admin.getEstados);
+router.get('/metodos-pago', admin.getMetodosPago);
+router.post('/ventas', admin.createVentaLocal);
 
 // Usuarios
 router.get('/usuarios', admin.getUsers);

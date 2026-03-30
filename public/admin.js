@@ -1,5 +1,10 @@
 // public/admin.js — Panel de administración completo
 (async function () {
+  const ui = window.uiDialog;
+  const uiAlert = async (msg, title) => { if (ui) return ui.alert(msg, title); };
+  const uiConfirm = async (msg, title) => { if (ui) return ui.confirm(msg, title); return true; };
+  const uiPrompt = async (msg, def, title) => { if (ui) return ui.prompt(msg, def, title); return null; };
+
   /* ── Auth check ── */
   const authRes = await fetch('/api/auth/me');
   const authData = await authRes.json();
@@ -9,7 +14,7 @@
   try {
     const dashRes = await fetch('/api/admin/dashboard');
     if (dashRes.status === 403 || dashRes.status === 401) {
-      alert('Acceso denegado: No tienes permisos de administrador');
+      await uiAlert('Acceso denegado: No tienes permisos de administrador', 'Acceso denegado');
       window.location.href = '/';
       return;
     }
@@ -21,22 +26,38 @@
   /* ══════════════════════════════════════════
      NAVIGATION
      ══════════════════════════════════════════ */
-  const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+  const navItems = document.querySelectorAll('.sidebar-nav .nav-item[data-section]');
+  const navGroupToggles = document.querySelectorAll('.nav-group-toggle');
   const sections = document.querySelectorAll('.section');
   const sectionTitle = document.getElementById('sectionTitle');
   const sidebar = document.getElementById('sidebar');
+  let pendingMetodoPagoResolver = null;
+  let cajaAbierta = false;
 
   navItems.forEach(btn => {
     btn.addEventListener('click', () => {
       const sec = btn.dataset.section;
+      if (!sec) return;
       navItems.forEach(n => n.classList.remove('active'));
       sections.forEach(s => s.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('sec-' + sec).classList.add('active');
+      const targetSection = document.getElementById('sec-' + sec);
+      if (!targetSection) return;
+      targetSection.classList.add('active');
       sectionTitle.textContent = btn.textContent.trim();
       sidebar.classList.remove('open');
       // Load data
       loaders[sec] && loaders[sec]();
+    });
+  });
+
+  navGroupToggles.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const groupId = btn.dataset.targetGroup;
+      if (!groupId) return;
+      const groupEl = document.querySelector('.nav-group[data-group="' + groupId + '"]');
+      if (!groupEl) return;
+      groupEl.classList.toggle('open');
     });
   });
 
@@ -51,6 +72,9 @@
     btn.addEventListener('click', () => {
       const modalId = btn.dataset.close;
       document.getElementById(modalId).classList.remove('open');
+      if (modalId === 'metodoPagoModal') {
+        resolveMetodoPagoSelection(null);
+      }
       // If closing cancel modal without confirming, revert select
       if (modalId === 'cancelModal' && pendingCancelSelect) {
         loadOrders(); // reload to restore original select value
@@ -63,6 +87,9 @@
     m.addEventListener('click', e => {
       if (e.target === m) {
         m.classList.remove('open');
+        if (m.id === 'metodoPagoModal') {
+          resolveMetodoPagoSelection(null);
+        }
         if (m.id === 'cancelModal' && pendingCancelSelect) {
           loadOrders();
           pendingCancelOrderId = null;
@@ -87,8 +114,40 @@
   }
 
   function statusBadge(estado) {
-    const map = { 'Pendiente': 'warning', 'Preparando': 'info', 'Listo para retirar': 'primary', 'En Camino': 'primary', 'Entregado': 'success', 'Cancelado': 'danger' };
+    const map = {
+      'Pendiente': 'warning',
+      'En Preparación': 'info',
+      'Listo para Retiro': 'primary',
+      'Listo para retirar': 'primary',
+      'En Camino': 'primary',
+      'Entregado': 'success',
+      'Cancelado': 'danger'
+    };
     return badge(estado || 'Sin estado', map[estado] || 'default');
+  }
+
+  function normalizeText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  function getDeliveryKind(tipoEntrega) {
+    const tipo = normalizeText(tipoEntrega);
+    if (!tipo) return null;
+    if (tipo.includes('retiro') || tipo.includes('recogida')) return 'retiro';
+    if (tipo.includes('delivery') || tipo.includes('despacho')) return 'delivery';
+    return null;
+  }
+
+  function isEstadoAllowedForDelivery(estadoNombre, tipoEntrega) {
+    const estado = normalizeText(estadoNombre);
+    const kind = getDeliveryKind(tipoEntrega);
+    if (kind === 'retiro' && estado === 'en camino') return false;
+    if (kind === 'delivery' && (estado === 'listo para retiro' || estado === 'listo para retirar')) return false;
+    return true;
   }
 
   async function api(url, method, body) {
@@ -107,10 +166,10 @@
 
     const s = data.stats;
     document.getElementById('statsGrid').innerHTML =
-      statCard('👥', 'Usuarios', s.totalUsers, 'purple') +
-      statCard('🧃', 'Productos', s.totalProducts, 'blue') +
-      statCard('📦', 'Pedidos', s.totalOrders, 'orange') +
-      statCard('💰', 'Ingresos', fmt(s.totalRevenue), 'green');
+      statCard('/assets/icons/usuariosIcon.png', 'Usuarios', s.totalUsers, 'purple') +
+      statCard('/assets/icons/productosIcon.png', 'Productos', s.totalProducts, 'blue') +
+      statCard('/assets/icons/pedidosIcon.png', 'Pedidos del dia', s.totalOrders, 'orange') +
+      statCard('/assets/icons/ingresosIcon.png', 'Ingresos del dia', fmt(s.totalRevenue), 'green');
 
     // Orders by status
     let html = '<div class="status-pills">';
@@ -129,27 +188,10 @@
     if (!data.topProducts || data.topProducts.length === 0) html = '<p class="empty">No hay ventas aún</p>';
     document.getElementById('topProducts').innerHTML = html;
 
-    // Sales week
-    html = '<div class="sales-bars">';
-    (data.salesWeek || []).forEach(d => {
-      const label = new Date(d.dia).toLocaleDateString('es-DO', { weekday: 'short', day: 'numeric' });
-      html += '<div class="sales-bar-item"><div class="sales-label">' + label + '</div><div class="sales-value">' + d.pedidos + ' pedidos — ' + fmt(d.ventas) + '</div></div>';
-    });
-    if (!data.salesWeek || data.salesWeek.length === 0) html = '<p class="empty">No hay ventas en los últimos 7 días</p>';
-    html += '</div>';
-    document.getElementById('salesWeek').innerHTML = html;
-
-    // Recent orders
-    html = '<table class="admin-table compact"><thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>';
-    (data.recentOrders || []).forEach(o => {
-      html += '<tr><td>' + esc(o.numeroPedido) + '</td><td>' + esc(o.nombreContacto) + '</td><td>' + fmt(o.total) + '</td><td>' + statusBadge(o.estado) + '</td><td>' + fmtDate(o.creadoEn) + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    if (!data.recentOrders || data.recentOrders.length === 0) html = '<p class="empty">No hay pedidos aún</p>';
-    document.getElementById('recentOrders').innerHTML = html;
-
     // Cargar configuración del local
     loadConfiguracionLocal();
+    initCajaControls();
+    await renderCajaStatus();
   }
 
   // ═══ CONFIGURACIÓN DEL LOCAL (HORARIOS) ═══
@@ -187,13 +229,13 @@
   }
 
   document.getElementById('btnAbrirLocal').addEventListener('click', async () => {
-    if (!confirm('¿Abrir el local ahora?')) return;
+    if (!(await uiConfirm('¿Abrir el local ahora?', 'Confirmar apertura'))) return;
     await api('/api/admin/configuracion-local/toggle', 'POST', { abierto: true });
     loadConfiguracionLocal();
   });
 
   document.getElementById('btnCerrarLocal').addEventListener('click', async () => {
-    const mensaje = prompt('¿Cerrar el local? Puedes agregar un mensaje opcional (ej: "Volvemos pronto"):', '');
+    const mensaje = await uiPrompt('¿Cerrar el local? Puedes agregar un mensaje opcional (ej: "Volvemos pronto"):', '', 'Cerrar local');
     if (mensaje === null) return;
     await api('/api/admin/configuracion-local/toggle', 'POST', { abierto: false, mensaje: mensaje || null });
     loadConfiguracionLocal();
@@ -210,12 +252,12 @@
       forzarEstado: config.forzarEstado,
       mensaje: config.mensaje
     });
-    alert('✅ Horario guardado');
+    await uiAlert('Horario guardado correctamente.', 'Listo');
     loadConfiguracionLocal();
   });
 
   document.getElementById('btnUsarHorario').addEventListener('click', async () => {
-    if (!confirm('¿Usar el horario automático? El local se abrirá/cerrará según el horario configurado.')) return;
+    if (!(await uiConfirm('¿Usar el horario automático? El local se abrirá/cerrará según el horario configurado.', 'Confirmar horario automático'))) return;
     const config = await api('/api/admin/configuracion-local');
     await api('/api/admin/configuracion-local', 'PUT', {
       horaApertura: config.horaApertura,
@@ -228,17 +270,75 @@
   });
 
   function statCard(icon, label, value, color) {
-    return '<div class="stat-card stat-' + color + '"><div class="stat-icon">' + icon + '</div><div class="stat-info"><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div></div>';
+    return '<div class="stat-card stat-' + color + '"><div class="stat-icon"><img src="' + esc(icon) + '" class="admin-icon" alt=""></div><div class="stat-info"><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div></div>';
   }
 
   /* ══════════════════════════════════════════
      PEDIDOS
      ══════════════════════════════════════════ */
   let estados = [];
+  let metodosPago = [];
   async function loadEstados() {
     if (estados.length > 0) return;
     const data = await api('/api/admin/estados');
     estados = data.estados || [];
+  }
+
+  async function loadMetodosPago() {
+    if (metodosPago.length > 0) return;
+    const data = await api('/api/admin/metodos-pago');
+    metodosPago = data.metodosPago || [];
+  }
+
+  function resolveMetodoPagoSelection(selection) {
+    if (!pendingMetodoPagoResolver) return;
+    const resolver = pendingMetodoPagoResolver;
+    pendingMetodoPagoResolver = null;
+    resolver(selection || null);
+  }
+
+  async function selectMetodoPagoEntrega(esRetiro = false) {
+    if (esRetiro && !cajaAbierta) {
+      await uiAlert('No se puede cambiar el método de pago: la caja está cerrada.\nLos pedidos en local se pagan al tiro, por lo que necesitas tener la caja abierta.', 'Caja cerrada');
+      return null;
+    }
+    await loadMetodosPago();
+    if (!metodosPago.length) {
+      await uiAlert('No hay métodos de pago configurados.', 'Métodos de pago');
+      return null;
+    }
+
+    const modal = document.getElementById('metodoPagoModal');
+    const optionsBox = document.getElementById('metodoPagoOptions');
+    const confirmBtn = document.getElementById('confirmMetodoPagoBtn');
+    if (!modal || !optionsBox || !confirmBtn) {
+      await uiAlert('No se pudo abrir el selector de método de pago.', 'Error');
+      return null;
+    }
+
+    optionsBox.innerHTML = metodosPago.map((m, idx) => {
+      const checked = idx === 0 ? ' checked' : '';
+      return '<label style="display:flex;align-items:center;gap:.55rem;padding:.65rem .75rem;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer">' +
+        '<input type="radio" name="metodoPagoEntrega" value="' + esc(m.id) + '"' + checked + '>' +
+        '<span style="font-weight:600">' + esc(m.nombre) + '</span>' +
+      '</label>';
+    }).join('');
+
+    confirmBtn.onclick = () => {
+      const selected = modal.querySelector('input[name="metodoPagoEntrega"]:checked');
+      if (!selected) {
+        uiAlert('Selecciona un método de pago para continuar.', 'Validación');
+        return;
+      }
+      const metodo = metodosPago.find(m => m.id === selected.value) || null;
+      modal.classList.remove('open');
+      resolveMetodoPagoSelection(metodo);
+    };
+
+    modal.classList.add('open');
+    return new Promise(resolve => {
+      pendingMetodoPagoResolver = resolve;
+    });
   }
 
   // Filtro de pedidos activo
@@ -269,12 +369,14 @@
 
   async function loadOrders() {
     await loadEstados();
+    const cajaData = await api('/api/admin/caja/estado');
+    cajaAbierta = cajaData.abierta || false;
     const data = await api('/api/admin/pedidos');
     const tbody = document.querySelector('#ordersTable tbody');
     tbody.innerHTML = '';
 
     // Filtrar pedidos según el filtro activo
-    const estadosEnProceso = ['Pendiente', 'Preparando', 'Listo para retirar', 'En Camino'];
+    const estadosEnProceso = ['Pendiente', 'En Preparación', 'Listo para Retiro', 'En Camino'];
     const estadosFinalizados = ['Entregado', 'Cancelado'];
     let pedidos = data.pedidos || [];
 
@@ -334,18 +436,14 @@
 
     pedidos.forEach(p => {
       const tr = document.createElement('tr');
-      var tipoE = (p.tipoEntrega || '').toLowerCase();
-      var esRetiro = tipoE.indexOf('recogida') >= 0 || tipoE.indexOf('retiro') >= 0;
+      var kind = getDeliveryKind(p.tipoEntrega);
+      var esRetiro = kind === 'retiro';
       var entregaBadge = esRetiro
         ? '<span class="badge badge-info">🏪 Retiro en tienda</span>'
         : '<span class="badge badge-warning">🚚 Despacho</span>';
 
       // Filtrar estados según tipo de entrega
-      var estadosFiltrados = estados.filter(e => {
-        if (esRetiro && e.nombre === 'En Camino') return false;
-        if (!esRetiro && e.nombre === 'Listo para retirar') return false;
-        return true;
-      });
+      var estadosFiltrados = estados.filter(e => isEstadoAllowedForDelivery(e.nombre, p.tipoEntrega));
 
       tr.innerHTML =
         '<td><strong>' + esc(p.numeroPedido) + '</strong></td>' +
@@ -355,7 +453,7 @@
         '<td>' + statusBadge(p.estado) + '</td>' +
         '<td>' + fmtDate(p.creadoEn) + '</td>' +
         '<td><button class="btn small" data-view-order="' + p.id + '">👁️</button> ' +
-          '<select class="status-select" data-order-status="' + p.id + '">' +
+          '<select class="status-select" data-order-status="' + p.id + '" data-has-metodo-pago="' + esc(p.metodoPago || '') + '" data-delivery-type="' + esc(p.tipoEntrega || '') + '">' +
             estadosFiltrados.map(e => '<option value="' + e.id + '"' + (e.id === p.estadoId ? ' selected' : '') + '>' + e.nombre + '</option>').join('') +
           '</select></td>';
       tbody.appendChild(tr);
@@ -368,6 +466,9 @@
     tbody.querySelectorAll('[data-order-status]').forEach(sel => {
       sel.addEventListener('change', async () => {
         const selectedEstado = estados.find(e => e.id === sel.value);
+        const tipoEntrega = (sel.dataset.deliveryType || '').toLowerCase();
+        const esRetiro = tipoEntrega.indexOf('recogida') >= 0 || tipoEntrega.indexOf('retiro') >= 0;
+        
         if (selectedEstado && selectedEstado.nombre === 'Cancelado') {
           // Show cancel reason modal
           pendingCancelOrderId = sel.dataset.orderStatus;
@@ -375,6 +476,31 @@
           pendingCancelSelect = sel;
           document.getElementById('cancelReason').value = '';
           document.getElementById('cancelModal').classList.add('open');
+        } else if (selectedEstado && selectedEstado.nombre === 'Entregado') {
+          if (esRetiro && !cajaAbierta) {
+            await uiAlert('No se puede marcar como Entregado: la caja está cerrada.\nLos pedidos en local se pagan al tiro, por lo que necesitas tener la caja abierta.', 'Caja cerrada');
+            loadOrders();
+            return;
+          }
+          const yaTieneMetodo = (sel.dataset.hasMetodoPago || '').trim().length > 0;
+          if (yaTieneMetodo) {
+            await api('/api/admin/pedidos/' + sel.dataset.orderStatus + '/estado', 'PATCH', {
+              estadoId: sel.value
+            });
+          } else {
+            const metodo = await selectMetodoPagoEntrega(esRetiro);
+            if (!metodo) {
+              loadOrders();
+              return;
+            }
+            await api('/api/admin/pedidos/' + sel.dataset.orderStatus + '/estado', 'PATCH', {
+              estadoId: sel.value,
+              metodoPagoId: metodo.id
+            });
+          }
+          loadOrders();
+          // Actualizar display de caja (el dinero se ha entregado y se suma a la caja)
+          await renderCajaStatus();
         } else {
           await api('/api/admin/pedidos/' + sel.dataset.orderStatus + '/estado', 'PATCH', { estadoId: sel.value });
           loadOrders();
@@ -404,6 +530,39 @@
     const data = await api('/api/admin/pedidos/' + id);
     if (!data.pedido) return;
     const p = data.pedido;
+
+    function parseItemNotas(rawNotas) {
+      const raw = String(rawNotas || '');
+      if (!raw.trim()) return { notaCliente: '', ingredientesQuitados: [] };
+
+      const tokens = raw
+        .split('|')
+        .map(t => t.trim())
+        .filter(Boolean);
+
+      const notaClienteParts = [];
+      const ingredientes = [];
+
+      tokens.forEach((token) => {
+        const low = token.toLowerCase();
+        if (low.startsWith('sin:')) {
+          const vals = token.slice(4).split(',').map(s => s.trim()).filter(Boolean);
+          vals.forEach(v => ingredientes.push(v));
+          return;
+        }
+        if (low.includes('[venta local') || low.includes('pago:')) {
+          return;
+        }
+        notaClienteParts.push(token);
+      });
+
+      const uniqIngredientes = Array.from(new Set(ingredientes));
+      return {
+        notaCliente: notaClienteParts.join(' | '),
+        ingredientesQuitados: uniqIngredientes
+      };
+    }
+
     let html = '<div class="order-detail">' +
       '<div class="order-detail-grid">' +
         '<div><strong>Pedido:</strong> ' + esc(p.numeroPedido) + '</div>' +
@@ -412,13 +571,26 @@
         '<div><strong>Correo:</strong> ' + esc(p.correoContacto) + '</div>' +
         '<div><strong>Teléfono:</strong> ' + esc(p.telefonoContacto) + '</div>' +
         '<div><strong>Entrega:</strong> ' + esc(p.tipoEntrega) + '</div>' +
+        '<div><strong>Método de pago:</strong> ' + esc(p.metodoPago || '—') + '</div>' +
         (p.calle ? '<div><strong>Dirección:</strong> ' + esc(p.calle) + ' ' + esc(p.numeroCasa) + ', ' + esc(p.sector) + '</div>' : '') +
         '<div><strong>Fecha:</strong> ' + fmtDate(p.creadoEn) + '</div>' +
       '</div>' +
       '<h4>Items</h4>' +
       '<table class="admin-table compact"><thead><tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Total</th><th>Notas</th></tr></thead><tbody>';
     (data.items || []).forEach(i => {
-      html += '<tr><td>' + esc(i.nombreProducto) + '</td><td>' + i.cantidad + '</td><td>' + fmt(i.precioUnitario) + '</td><td>' + fmt(i.totalLinea) + '</td><td>' + esc(i.notasItem) + '</td></tr>';
+      const parsedNotas = parseItemNotas(i.notasItem);
+      const notaCliente = parsedNotas.notaCliente ? esc(parsedNotas.notaCliente) : '—';
+      const ingredientesTxt = parsedNotas.ingredientesQuitados.length
+        ? esc(parsedNotas.ingredientesQuitados.join(', '))
+        : '—';
+
+      const notasHtml =
+        '<div style="display:flex;flex-direction:column;gap:.25rem">' +
+          '<div><strong>Nota cliente:</strong> ' + notaCliente + '</div>' +
+          '<div><strong>Ingredientes quitados:</strong> ' + ingredientesTxt + '</div>' +
+        '</div>';
+
+      html += '<tr><td>' + esc(i.nombreProducto) + '</td><td>' + i.cantidad + '</td><td>' + fmt(i.precioUnitario) + '</td><td>' + fmt(i.totalLinea) + '</td><td>' + notasHtml + '</td></tr>';
     });
     var envio = (Number(p.total) || 0) - (Number(p.subtotal) || 0) + (Number(p.descuentoTotal) || 0);
     html += '</tbody></table>' +
@@ -479,7 +651,7 @@
     });
     tbody.querySelectorAll('[data-del-product]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('¿Desactivar este producto?')) return;
+        if (!(await uiConfirm('¿Desactivar este producto?', 'Confirmar'))) return;
         await api('/api/admin/productos/' + btn.dataset.delProduct, 'DELETE');
         loadProducts();
       });
@@ -717,7 +889,7 @@
     });
     tbody.querySelectorAll('[data-del-sector]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('¿Desactivar este sector?')) return;
+        if (!(await uiConfirm('¿Desactivar este sector?', 'Confirmar'))) return;
         await api('/api/admin/sectores/' + btn.dataset.delSector, 'DELETE');
         loadSectors();
       });
@@ -779,7 +951,7 @@
     });
     tbody.querySelectorAll('[data-del-coupon]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('¿Desactivar este cupón?')) return;
+        if (!(await uiConfirm('¿Desactivar este cupón?', 'Confirmar'))) return;
         await api('/api/admin/cupones/' + btn.dataset.delCoupon, 'DELETE');
         loadCoupons();
       });
@@ -909,7 +1081,7 @@
     });
     tbody.querySelectorAll('[data-del-sld]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('¿Eliminar esta imagen del slider?')) return;
+        if (!(await uiConfirm('¿Eliminar esta imagen del slider?', 'Confirmar'))) return;
         await api('/api/admin/slider/' + btn.dataset.delSld, 'DELETE');
         loadSlider();
       });
@@ -1017,18 +1189,785 @@
     // Event listeners
     tbody.querySelectorAll('[data-canje-deliver]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('¿Marcar este canje como entregado?')) return;
+        if (!(await uiConfirm('¿Marcar este canje como entregado?', 'Confirmar'))) return;
         await api('/api/admin/canjes/' + btn.dataset.canjeDeliver, 'PATCH', { estado: 'entregado' });
         loadCanjes();
       });
     });
     tbody.querySelectorAll('[data-canje-cancel]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('¿Cancelar este canje? Se devolverán los puntos al usuario.')) return;
+        if (!(await uiConfirm('¿Cancelar este canje? Se devolverán los puntos al usuario.', 'Confirmar cancelación'))) return;
         await api('/api/admin/canjes/' + btn.dataset.canjeCancel, 'PATCH', { estado: 'cancelado' });
         loadCanjes();
       });
     });
+  }
+
+  /* ══════════════════════════════════════════
+     INGRESOS DINÁMICOS
+     ══════════════════════════════════════════ */
+  let ingresosInitialized = false;
+
+  function formatInputDateValue(date) {
+    const d = new Date(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return y + '-' + m + '-' + day + 'T' + hh + ':' + mm;
+  }
+
+  function getGroupingLabel(grouping) {
+    if (grouping === 'hour') return 'Por hora (cierre diario)';
+    if (grouping === 'day') return 'Por día';
+    if (grouping === 'week') return 'Por semana';
+    if (grouping === 'month') return 'Por mes';
+    return '—';
+  }
+
+  function renderIngresosSummary(report) {
+    const box = document.getElementById('ingresosSummary');
+    box.innerHTML =
+      statCard('/assets/icons/ingresosIcon.png', 'Ingresos Reales', fmt(report.totals.totalIngresos), 'green') +
+      statCard('/assets/icons/pedidosIcon.png', 'Pedidos', report.totals.totalPedidos, 'orange') +
+      statCard('/assets/icons/trofeoIcon.png', 'MockaPoints Canjeados', report.totals.totalMockaPointsCanjeados, 'purple') +
+      statCard('/assets/icons/trofeoIcon.png', 'Canjes Entregados', report.totals.totalCanjesMocka, 'blue');
+  }
+
+  function renderIngresosByMethod(report) {
+    const el = document.getElementById('ingresosByMethod');
+    if (!report.byPaymentMethod || report.byPaymentMethod.length === 0) {
+      el.innerHTML = '<p class="empty">Sin transacciones para el rango seleccionado</p>';
+      return;
+    }
+
+    let html = '<table class="admin-table compact"><thead><tr><th>Método</th><th>Pedidos</th><th>Ingresos</th></tr></thead><tbody>';
+    report.byPaymentMethod.forEach((row) => {
+      html += '<tr><td>' + esc(row.metodoPago) + '</td><td>' + row.totalPedidos + '</td><td>' + fmt(row.totalIngresos) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  function renderIngresosBreakdown(report) {
+    const el = document.getElementById('ingresosBreakdown');
+    if (!report.breakdown || report.breakdown.length === 0) {
+      el.innerHTML = '<p class="empty">Sin datos para agrupar</p>';
+      return;
+    }
+
+    let html = '<table class="admin-table compact"><thead><tr><th>Bloque</th><th>Pedidos</th><th>Canjes MP</th><th>Ingresos</th></tr></thead><tbody>';
+    report.breakdown.forEach((row) => {
+      html += '<tr><td>' + esc(row.bucket) + '</td><td>' + row.totalPedidos + '</td><td>' + row.mockaCanjes + '</td><td>' + fmt(row.totalIngresos) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  function renderIngresosDetail(report) {
+    const el = document.getElementById('ingresosDetail');
+    if (!report.transactions || report.transactions.length === 0) {
+      el.innerHTML = '<p class="empty">No hay transacciones en el rango</p>';
+      return;
+    }
+
+    let html = '<table class="admin-table"><thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Método</th><th>Estado</th><th>Monto</th></tr></thead><tbody>';
+    report.transactions.forEach((t) => {
+      html += '<tr>' +
+        '<td>' + esc(t.numeroPedido || '—') + '</td>' +
+        '<td>' + fmtDate(t.fechaOperacion) + '</td>' +
+        '<td>' + esc(t.cliente || 'Cliente') + '</td>' +
+        '<td>' + esc(t.metodoPago || '—') + '</td>' +
+        '<td>' + statusBadge(t.estado) + '</td>' +
+        '<td>' + fmt(t.montoReal) + '</td>' +
+      '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  let cajaEstadoCache = null;
+
+  function toDateInputValue(dateLike) {
+    const d = new Date(dateLike);
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function syncCajaDateInput(estado) {
+    const input = document.getElementById('cajaFechaCierre');
+    if (!input) return;
+    if (!input.value && estado && estado.defaultDate) input.value = estado.defaultDate;
+  }
+
+  async function fetchCajaEstado() {
+    const data = await api('/api/admin/caja/estado');
+    if (data && data.error) throw new Error(data.error);
+    cajaEstadoCache = data || null;
+    return cajaEstadoCache;
+  }
+
+  async function fetchCierresByFecha(fecha) {
+    const qs = new URLSearchParams({ fecha });
+    const data = await api('/api/admin/caja/cierres?' + qs.toString());
+    if (data && data.error) throw new Error(data.error);
+    return Array.isArray(data.cierres) ? data.cierres : [];
+  }
+
+  function buildCierrePrintableHtml(cierre) {
+    return '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cierre de Caja</title>' +
+      '<style>body{font-family:Arial,sans-serif;padding:18px;color:#111}h1{font-size:20px;margin:0 0 12px}table{border-collapse:collapse;width:100%;max-width:560px}td{padding:8px;border-bottom:1px solid #e5e7eb}td:first-child{color:#4b5563;width:45%}.total td{font-weight:700;border-top:2px solid #111}small{display:block;margin-top:14px;color:#6b7280}</style>' +
+      '</head><body>' +
+      '<h1>Cierre de Caja</h1>' +
+      '<table>' +
+      '<tr><td>Fecha apertura</td><td>' + fmtDate(cierre.aperturaAt) + '</td></tr>' +
+      '<tr><td>Fecha cierre</td><td>' + fmtDate(cierre.cierreAt) + '</td></tr>' +
+      '<tr><td>Monto apertura</td><td>' + fmt(cierre.montoApertura) + '</td></tr>' +
+      '<tr><td>Ingresos del turno</td><td>' + fmt(cierre.ingresosTurno) + '</td></tr>' +
+      '<tr class="total"><td>Total cierre</td><td>' + fmt(cierre.montoCierre) + '</td></tr>' +
+      '</table>' +
+      '<small>Dulce Mocka — Reimpresión de cierre</small>' +
+      '</body></html>';
+  }
+
+  async function reimprimirCierre() {
+    const input = document.getElementById('cajaFechaCierre');
+    const dateValue = input ? input.value : '';
+    if (!dateValue) {
+      await uiAlert('Selecciona una fecha de cierre.', 'Reimprimir cierre');
+      return;
+    }
+
+    let cierres = [];
+    try {
+      cierres = await fetchCierresByFecha(dateValue);
+    } catch (e) {
+      await uiAlert('No se pudo consultar cierres: ' + (e.message || 'error desconocido'), 'Reimprimir cierre');
+      return;
+    }
+
+    if (!cierres.length) {
+      await uiAlert('No hay un cierre registrado para la fecha seleccionada.', 'Reimprimir cierre');
+      return;
+    }
+
+    let cierre = cierres[0];
+    if (cierres.length > 1) {
+      const opciones = cierres.map((c, idx) => {
+        return (idx + 1) + '. ' +
+          new Date(c.cierreAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) +
+          ' — ' + fmt(c.montoCierre);
+      }).join('\n');
+
+      const seleccion = await uiPrompt(
+        'Hay ' + cierres.length + ' cierres ese día.\nSelecciona el número que deseas reimprimir:\n\n' + opciones,
+        '1',
+        'Seleccionar cierre'
+      );
+
+      if (seleccion === null) return;
+      const idx = Number(String(seleccion).trim()) - 1;
+      if (!Number.isInteger(idx) || idx < 0 || idx >= cierres.length) {
+        await uiAlert('Selección inválida. Debes ingresar un número de la lista.', 'Reimprimir cierre');
+        return;
+      }
+      cierre = cierres[idx];
+    }
+
+    const w = window.open('', '_blank', 'width=720,height=760');
+    if (!w) {
+      await uiAlert('No se pudo abrir la ventana de impresión. Revisa si el navegador bloqueó popups.', 'Impresión');
+      return;
+    }
+
+    w.document.open();
+    w.document.write(buildCierrePrintableHtml(cierre));
+    w.document.close();
+    setTimeout(() => {
+      w.focus();
+      w.print();
+    }, 220);
+  }
+
+  async function renderCajaStatus() {
+    const estadoEl = document.getElementById('cajaEstado');
+    const aperturaInfoEl = document.getElementById('cajaAperturaInfo');
+    const aperturaMontoEl = document.getElementById('cajaMontoApertura');
+    const ingresosTurnoEl = document.getElementById('cajaIngresosTurno');
+    const cierreMontoEl = document.getElementById('cajaMontoCierre');
+
+    if (!estadoEl || !aperturaInfoEl || !aperturaMontoEl || !ingresosTurnoEl || !cierreMontoEl) return;
+
+    let state = null;
+    try {
+      state = await fetchCajaEstado();
+    } catch (e) {
+      estadoEl.textContent = 'Error cargando caja';
+      estadoEl.style.color = '#ef4444';
+      aperturaInfoEl.textContent = e.message || 'No se pudo obtener el estado';
+      aperturaMontoEl.textContent = fmt(0);
+      ingresosTurnoEl.textContent = fmt(0);
+      cierreMontoEl.textContent = fmt(0);
+      return;
+    }
+
+    syncCajaDateInput(state);
+
+    if (!state.abierta || !state.aperturaAt) {
+      estadoEl.textContent = 'Caja cerrada';
+      estadoEl.style.color = '#6b7280';
+      aperturaInfoEl.textContent = state.ultimoCierreAt
+        ? 'Último cierre: ' + fmtDate(state.ultimoCierreAt)
+        : 'Apertura: —';
+      aperturaMontoEl.textContent = fmt(state.montoApertura || 0);
+      ingresosTurnoEl.textContent = fmt(state.ingresosTurno || 0);
+      cierreMontoEl.textContent = fmt(state.montoCierre || 0);
+      return;
+    }
+
+    estadoEl.textContent = 'Caja abierta';
+    estadoEl.style.color = '#16a34a';
+    aperturaInfoEl.textContent = 'Apertura: ' + fmtDate(state.aperturaAt);
+    aperturaMontoEl.textContent = fmt(state.montoApertura || 0);
+    ingresosTurnoEl.textContent = fmt(state.ingresosTurno || 0);
+    cierreMontoEl.textContent = fmt(state.montoCierre || 0);
+  }
+
+  async function abrirCaja() {
+    const state = cajaEstadoCache || await fetchCajaEstado();
+    if (state && state.abierta) {
+      await uiAlert('La caja ya está abierta.', 'Caja');
+      await renderCajaStatus();
+      return;
+    }
+
+    const value = await uiPrompt('Ingresa el monto de apertura de caja:', String((state && state.montoApertura) || ''), 'Abrir caja');
+    if (value === null) return;
+
+    const monto = Number(String(value).replace(',', '.'));
+    if (!Number.isFinite(monto) || monto < 0) {
+      await uiAlert('Ingresa un monto válido mayor o igual a 0.', 'Monto inválido');
+      return;
+    }
+
+    const resp = await api('/api/admin/caja/abrir', 'POST', { montoApertura: monto });
+    if (resp && resp.error) {
+      await uiAlert(resp.error, 'Caja');
+      return;
+    }
+
+    await renderCajaStatus();
+    await uiAlert('Caja abierta correctamente con monto inicial de ' + fmt(monto) + '.', 'Caja abierta');
+  }
+
+  async function cerrarCaja() {
+    const state = cajaEstadoCache || await fetchCajaEstado();
+    if (!state || !state.abierta || !state.aperturaAt) {
+      await uiAlert('La caja ya está cerrada.', 'Caja');
+      await renderCajaStatus();
+      return;
+    }
+
+    const montoApertura = Number(state.montoApertura || 0);
+    const ingresosTurno = Number(state.ingresosTurno || 0);
+    const montoCierre = Number(state.montoCierre || (montoApertura + ingresosTurno));
+    const resumen =
+      'Monto apertura: ' + fmt(montoApertura) + '\n' +
+      'Ingresos del turno: ' + fmt(ingresosTurno) + '\n' +
+      'Monto de cierre calculado: ' + fmt(montoCierre) + '\n\n' +
+      '¿Deseas cerrar la caja ahora?';
+
+    const ok = await uiConfirm(resumen, 'Cerrar caja');
+    if (!ok) return;
+
+    const resp = await api('/api/admin/caja/cerrar', 'POST');
+    if (resp && resp.error) {
+      await uiAlert(resp.error, 'Error de cierre');
+      return;
+    }
+
+    await renderCajaStatus();
+    const cierreMonto = resp && resp.cierre ? Number(resp.cierre.montoCierre || 0) : montoCierre;
+    await uiAlert('Caja cerrada correctamente.\nMonto final: ' + fmt(cierreMonto), 'Caja cerrada');
+  }
+
+  function resetIngresosFilters() {
+    const end = new Date();
+    const start = new Date(end.getTime() - (7 * 24 * 60 * 60 * 1000));
+    document.getElementById('ingresosStart').value = formatInputDateValue(start);
+    document.getElementById('ingresosEnd').value = formatInputDateValue(end);
+  }
+
+  async function fetchAndRenderIngresos() {
+    const startInput = document.getElementById('ingresosStart').value;
+    const endInput = document.getElementById('ingresosEnd').value;
+
+    const qs = new URLSearchParams({
+      startDate: startInput,
+      endDate: endInput
+    });
+
+    const data = await api('/api/admin/ingresos?' + qs.toString());
+    if (data.error) {
+      await uiAlert(data.error, 'Reporte de ingresos');
+      return;
+    }
+
+    document.getElementById('ingresosGroupInfo').textContent = 'Agrupación automática: ' + getGroupingLabel(data.grouping);
+    renderIngresosSummary(data);
+    renderIngresosByMethod(data);
+    renderIngresosBreakdown(data);
+    renderIngresosDetail(data);
+  }
+
+  let cajaControlsInitialized = false;
+
+  function initCajaControls() {
+    if (cajaControlsInitialized) return;
+    cajaControlsInitialized = true;
+    const abrirBtn = document.getElementById('cajaAbrirBtn');
+    const cerrarBtn = document.getElementById('cajaCerrarBtn');
+    const reimprimirBtn = document.getElementById('cajaReimprimirBtn');
+    if (abrirBtn) abrirBtn.addEventListener('click', abrirCaja);
+    if (cerrarBtn) cerrarBtn.addEventListener('click', cerrarCaja);
+    if (reimprimirBtn) reimprimirBtn.addEventListener('click', reimprimirCierre);
+  }
+
+  function initIngresosControls() {
+    if (ingresosInitialized) return;
+    ingresosInitialized = true;
+
+    resetIngresosFilters();
+
+    document.getElementById('ingresosApplyBtn').addEventListener('click', fetchAndRenderIngresos);
+    document.getElementById('ingresosClearBtn').addEventListener('click', async () => {
+      resetIngresosFilters();
+      await fetchAndRenderIngresos();
+    });
+    document.getElementById('ingresosExportBtn').addEventListener('click', () => {
+      const startDate = document.getElementById('ingresosStart').value;
+      const endDate = document.getElementById('ingresosEnd').value;
+      const qs = new URLSearchParams({ startDate, endDate });
+      window.open('/api/admin/ingresos/export?' + qs.toString(), '_blank');
+    });
+  }
+
+  async function loadIngresos() {
+    initIngresosControls();
+    await fetchAndRenderIngresos();
+  }
+
+  /* ══════════════════════════════════════════
+     VENTAS EN LOCAL
+     ══════════════════════════════════════════ */
+  let ventasInitialized = false;
+  let ventasProductos = [];
+  let ventasProductosFiltrados = [];
+  let ventasSectores = [];
+  let ventasCarrito = [];
+  let ventaProductoActual = null;
+  let ventaDespachoData = null;
+  let ventaLocalAbierto = true;
+
+  function ventaSubtotal() {
+    return ventasCarrito.reduce((acc, it) => acc + ((Number(it.precio) || 0) * (Number(it.cantidad) || 1)), 0);
+  }
+
+  function ventaShipping() {
+    const tipo = document.getElementById('ventaTipoEntrega')?.value || 'retiro';
+    if (tipo !== 'despacho' || !ventaDespachoData) return 0;
+    return Number(ventaDespachoData.costoEnvio || 0);
+  }
+
+  function renderVentasSummary() {
+    const subtotal = ventaSubtotal();
+    const shipping = ventaShipping();
+    const total = subtotal + shipping;
+    document.getElementById('ventaSubtotal').textContent = fmt(subtotal);
+    document.getElementById('ventaTotal').textContent = fmt(total);
+
+    const shippingRow = document.getElementById('ventaShippingRow');
+    const shippingEl = document.getElementById('ventaShipping');
+    if (shipping > 0) {
+      shippingRow.style.display = '';
+      shippingEl.textContent = fmt(shipping);
+    } else {
+      shippingRow.style.display = 'none';
+    }
+  }
+
+  function renderVentasCarrito() {
+    const box = document.getElementById('ventaCartItems');
+    if (!ventasCarrito.length) {
+      box.innerHTML =
+        '<div class="ventas-empty-cart">' +
+          '<span class="empty-icon"><img src="/assets/icons/pedidosIcon.png" class="admin-icon" alt=""></span>' +
+          '<p>El carrito está vacío</p>' +
+          '<small>Agrega productos desde la lista</small>' +
+        '</div>';
+      renderVentasSummary();
+      return;
+    }
+
+    box.innerHTML = ventasCarrito.map((it, idx) => {
+      const totalLinea = (Number(it.precio) || 0) * (Number(it.cantidad) || 1);
+      const sinTxt = (it.ingredientesQuitados || []).length
+        ? '<div class="ventas-cart-line">Sin: ' + esc((it.ingredientesQuitados || []).map(i => i.nombre).join(', ')) + '</div>'
+        : '';
+      const notasTxt = it.notas ? '<div class="ventas-cart-line">📝 ' + esc(it.notas) + '</div>' : '';
+
+      return (
+        '<div class="ventas-cart-item" data-cart-idx="' + idx + '">' +
+          '<div class="ventas-cart-top">' +
+            '<div>' +
+              '<div class="ventas-cart-name">' + esc(it.nombre) + '</div>' +
+              '<div class="ventas-cart-line">' + fmt(it.precio) + ' c/u</div>' +
+              sinTxt + notasTxt +
+            '</div>' +
+            '<strong>' + fmt(totalLinea) + '</strong>' +
+          '</div>' +
+          '<div class="ventas-cart-actions">' +
+            '<div class="ventas-cart-qty">' +
+              '<button type="button" data-venta-qty="minus" data-idx="' + idx + '">−</button>' +
+              '<span>' + (Number(it.cantidad) || 1) + '</span>' +
+              '<button type="button" data-venta-qty="plus" data-idx="' + idx + '">+</button>' +
+            '</div>' +
+            '<button type="button" class="ventas-remove" data-venta-remove="' + idx + '">Quitar</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    renderVentasSummary();
+  }
+
+  function renderVentasProductos() {
+    const list = document.getElementById('ventasProductosList');
+    if (!ventasProductosFiltrados.length) {
+      list.innerHTML = '<p class="empty">No hay productos para mostrar</p>';
+      return;
+    }
+
+    list.innerHTML = ventasProductosFiltrados.map(p => {
+      const img = p.imagen && /^https?:\/\//i.test(p.imagen)
+        ? '<img src="' + esc(p.imagen) + '" alt="' + esc(p.nombre) + '">'
+        : '<span>' + esc(p.emoji || '🧃') + '</span>';
+
+      return (
+        '<article class="ventas-prod-card" data-venta-product="' + p.id + '">' +
+          '<div class="ventas-prod-img">' + img + '</div>' +
+          '<div class="ventas-prod-name">' + esc(p.nombre) + '</div>' +
+          '<div class="ventas-prod-desc">' + esc(p.descripcion || 'Sin descripción') + '</div>' +
+          '<div class="ventas-prod-price">' + fmt(p.precio) + '</div>' +
+        '</article>'
+      );
+    }).join('');
+  }
+
+  function updateVentaModalSubtotal() {
+    if (!ventaProductoActual) return;
+    const qty = Math.max(1, parseInt(document.getElementById('ventaCantidad').value, 10) || 1);
+    document.getElementById('ventaCantidad').value = qty;
+    document.getElementById('ventaModalSubtotal').textContent = fmt((Number(ventaProductoActual.precio) || 0) * qty);
+  }
+
+  function openVentaProductoModal(producto) {
+    ventaProductoActual = producto;
+    document.getElementById('ventaProductoNombre').textContent = producto.nombre;
+    document.getElementById('ventaProductoDesc').textContent = producto.descripcion || 'Sin descripción';
+    document.getElementById('ventaProductoPrecio').textContent = fmt(producto.precio);
+    document.getElementById('ventaProductoNotas').value = '';
+    document.getElementById('ventaCantidad').value = 1;
+
+    const imgBox = document.getElementById('ventaProductoImg');
+    if (producto.imagen && /^https?:\/\//i.test(producto.imagen)) {
+      imgBox.innerHTML = '<img src="' + esc(producto.imagen) + '" alt="' + esc(producto.nombre) + '">';
+    } else {
+      imgBox.innerHTML = '<img src="/assets/icons/productosIcon.png" class="admin-icon" alt="">';
+    }
+
+    const section = document.getElementById('ventaIngredientesSection');
+    const list = document.getElementById('ventaIngredientesList');
+    const ingredientes = Array.isArray(producto.ingredientes) ? producto.ingredientes : [];
+    if (!ingredientes.length) {
+      section.style.display = 'none';
+      list.innerHTML = '';
+    } else {
+      section.style.display = '';
+      list.innerHTML = ingredientes.map(ing => {
+        const checked = ing.incluidoPorDefecto ? 'checked' : '';
+        const disable = ing.sePuedeQuitar ? '' : 'disabled';
+        const hint = ing.sePuedeQuitar ? 'se puede quitar' : 'fijo';
+        return (
+          '<div class="venta-ing-item">' +
+            '<label>' +
+              '<input type="checkbox" class="venta-ing-check" data-ing-id="' + ing.ingredienteId + '" ' + checked + ' ' + disable + '>' +
+              '<span>' + esc(ing.nombre) + '</span>' +
+            '</label>' +
+            '<small>' + hint + '</small>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    updateVentaModalSubtotal();
+    document.getElementById('ventaProductoModal').classList.add('open');
+  }
+
+  function bindVentasEventsOnce() {
+    if (ventasInitialized) return;
+    ventasInitialized = true;
+
+    document.getElementById('ventaSearchInput').addEventListener('input', (e) => {
+      const term = (e.target.value || '').trim().toLowerCase();
+      ventasProductosFiltrados = term
+        ? ventasProductos.filter(p => (p.nombre || '').toLowerCase().includes(term) || (p.descripcion || '').toLowerCase().includes(term))
+        : [...ventasProductos];
+      renderVentasProductos();
+    });
+
+    document.getElementById('ventasProductosList').addEventListener('click', (e) => {
+      const card = e.target.closest('[data-venta-product]');
+      if (!card) return;
+      const p = ventasProductos.find(x => x.id === card.dataset.ventaProduct);
+      if (p) openVentaProductoModal(p);
+    });
+
+    document.getElementById('ventaCartItems').addEventListener('click', (e) => {
+      const rem = e.target.closest('[data-venta-remove]');
+      if (rem) {
+        const idx = Number(rem.dataset.ventaRemove);
+        ventasCarrito.splice(idx, 1);
+        renderVentasCarrito();
+        return;
+      }
+      const qty = e.target.closest('[data-venta-qty]');
+      if (!qty) return;
+      const idx = Number(qty.dataset.idx);
+      if (!ventasCarrito[idx]) return;
+      const op = qty.dataset.ventaQty;
+      let q = Number(ventasCarrito[idx].cantidad) || 1;
+      q = op === 'minus' ? Math.max(1, q - 1) : q + 1;
+      ventasCarrito[idx].cantidad = q;
+      renderVentasCarrito();
+    });
+
+    document.getElementById('ventaClearBtn').addEventListener('click', () => {
+      (async () => {
+        if (!ventasCarrito.length) return;
+        if (!(await uiConfirm('¿Vaciar carrito de venta?', 'Confirmar'))) return;
+        ventasCarrito = [];
+        renderVentasCarrito();
+      })();
+    });
+
+    document.querySelectorAll('.ventas-delivery-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ventas-delivery-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('ventaTipoEntrega').value = btn.dataset.tipo;
+        renderVentasSummary();
+      });
+    });
+
+    document.getElementById('despachoSector').addEventListener('change', () => {
+      const sectorId = document.getElementById('despachoSector').value;
+      if (!sectorId) {
+        document.getElementById('despachoCosto').textContent = 'Por definir';
+        return;
+      }
+      const sector = ventasSectores.find(s => s.id === sectorId);
+      document.getElementById('despachoCosto').textContent = fmt(sector ? Number(sector.precioEnvio || 0) : 0);
+    });
+
+    document.getElementById('despachoConfirmBtn').addEventListener('click', () => {
+      const telefono = document.getElementById('despachoTelefono').value.trim();
+      const direccion = document.getElementById('despachoDireccion').value.trim();
+      const sectorId = document.getElementById('despachoSector').value;
+      const referencia = document.getElementById('despachoReferencia').value.trim();
+
+      if (!telefono || !direccion || !sectorId) {
+        uiAlert('Completa teléfono, dirección y sector para despacho.', 'Campos incompletos');
+        return;
+      }
+
+      const sector = ventasSectores.find(s => s.id === sectorId);
+      ventaDespachoData = {
+        telefono,
+        direccion,
+        sectorId,
+        sectorNombre: sector ? sector.nombre : '',
+        referencia,
+        costoEnvio: sector ? Number(sector.precioEnvio || 0) : 0
+      };
+      document.getElementById('despachoModal').classList.remove('open');
+      renderVentasSummary();
+    });
+
+    document.getElementById('ventaQtyMinus').addEventListener('click', () => {
+      const input = document.getElementById('ventaCantidad');
+      input.value = Math.max(1, (parseInt(input.value, 10) || 1) - 1);
+      updateVentaModalSubtotal();
+    });
+    document.getElementById('ventaQtyPlus').addEventListener('click', () => {
+      const input = document.getElementById('ventaCantidad');
+      input.value = (parseInt(input.value, 10) || 1) + 1;
+      updateVentaModalSubtotal();
+    });
+    document.getElementById('ventaCantidad').addEventListener('input', updateVentaModalSubtotal);
+
+    document.getElementById('ventaProductoConfirmBtn').addEventListener('click', () => {
+      if (!ventaProductoActual) return;
+      const cantidad = Math.max(1, parseInt(document.getElementById('ventaCantidad').value, 10) || 1);
+      const notas = document.getElementById('ventaProductoNotas').value.trim();
+
+      const ingredientesQuitados = [];
+      const checks = document.querySelectorAll('#ventaIngredientesList .venta-ing-check');
+      checks.forEach(cb => {
+        const ing = (ventaProductoActual.ingredientes || []).find(i => i.ingredienteId === cb.dataset.ingId);
+        if (!ing) return;
+        if (!cb.checked && ing.incluidoPorDefecto) {
+          ingredientesQuitados.push({ id: ing.ingredienteId, nombre: ing.nombre });
+        }
+      });
+
+      ventasCarrito.push({
+        productoId: ventaProductoActual.id,
+        nombre: ventaProductoActual.nombre,
+        precio: Number(ventaProductoActual.precio) || 0,
+        cantidad,
+        notas,
+        ingredientesQuitados
+      });
+
+      document.getElementById('ventaProductoModal').classList.remove('open');
+      renderVentasCarrito();
+    });
+
+    document.getElementById('ventaCreateBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('ventaMsg');
+      msg.textContent = '';
+      msg.style.color = '#e74c3c';
+
+      if (!ventaLocalAbierto) {
+        msg.textContent = 'El local está cerrado. No se pueden registrar ventas en local.';
+        return;
+      }
+
+      if (!ventasCarrito.length) {
+        msg.textContent = 'Agrega productos al carrito para finalizar la venta.';
+        return;
+      }
+
+      const tipoEntrega = document.getElementById('ventaTipoEntrega').value || 'retiro';
+      if (tipoEntrega === 'despacho' && !ventaDespachoData) {
+        document.getElementById('despachoModal').classList.add('open');
+        msg.textContent = 'Completa los datos de despacho para continuar.';
+        return;
+      }
+
+      const clienteNombre = document.getElementById('ventaClienteNombre').value.trim() || 'Cliente en local';
+      const metodoPago = document.getElementById('ventaMetodoPago').value;
+      const subtotal = ventaSubtotal();
+      const shipping = ventaShipping();
+
+      const items = ventasCarrito.map(it => ({
+        productoId: it.productoId,
+        nombre: it.nombre,
+        precio: Number(it.precio) || 0,
+        cantidad: Number(it.cantidad) || 1,
+        notas: it.notas || '',
+        ingredientesQuitados: it.ingredientesQuitados || []
+      }));
+
+      msg.style.color = '#6b7280';
+      msg.textContent = 'Procesando venta...';
+      try {
+        const data = await api('/api/admin/ventas', 'POST', {
+          clienteNombre,
+          tipoEntrega,
+          metodoPago,
+          despacho: tipoEntrega === 'despacho' ? ventaDespachoData : null,
+          items,
+          subtotal,
+          total: subtotal + shipping
+        });
+
+        if (!data.ok || !data.pedido) {
+          msg.style.color = '#e74c3c';
+          msg.textContent = data.error || 'No se pudo crear la venta.';
+          return;
+        }
+
+        msg.style.color = '#22c55e';
+        msg.textContent = 'Venta creada: ' + data.pedido.numeroPedido;
+        ventasCarrito = [];
+        ventaDespachoData = null;
+        document.getElementById('ventaClienteNombre').value = '';
+        document.getElementById('ventaMetodoPago').value = 'efectivo';
+        document.getElementById('despachoTelefono').value = '';
+        document.getElementById('despachoDireccion').value = '';
+        document.getElementById('despachoSector').value = '';
+        document.getElementById('despachoReferencia').value = '';
+        document.getElementById('despachoCosto').textContent = 'Por definir';
+        document.getElementById('ventaTipoEntrega').value = 'retiro';
+        document.querySelectorAll('.ventas-delivery-btn').forEach(b => b.classList.remove('active'));
+        const retiroBtn = document.querySelector('.ventas-delivery-btn[data-tipo="retiro"]');
+        if (retiroBtn) retiroBtn.classList.add('active');
+        renderVentasCarrito();
+      } catch (err) {
+        msg.style.color = '#e74c3c';
+        msg.textContent = 'Error de conexión al crear la venta.';
+      }
+    });
+  }
+
+  async function loadVentas() {
+    bindVentasEventsOnce();
+
+    const cfg = await api('/api/admin/configuracion-local');
+    const createBtn = document.getElementById('ventaCreateBtn');
+    const msg = document.getElementById('ventaMsg');
+    ventaLocalAbierto = !!(cfg && cfg.abierto);
+    if (createBtn) {
+      createBtn.disabled = !ventaLocalAbierto;
+      createBtn.title = ventaLocalAbierto ? '' : 'Local cerrado';
+    }
+    if (!ventaLocalAbierto) {
+      msg.textContent = 'El local está cerrado. No se pueden registrar ventas en local.';
+      msg.style.color = '#e74c3c';
+    } else {
+      msg.textContent = '';
+    }
+
+    const prodRes = await api('/api/admin/productos');
+    ventasProductos = (prodRes.productos || []).filter(p => p.activo).map(p => ({
+      id: p.id,
+      nombre: p.nombre,
+      descripcion: p.descripcion || '',
+      precio: Number(p.precio) || 0,
+      imagen: p.imagen || null,
+      emoji: p.emoji || '🧃',
+      ingredientes: p.ingredientes || []
+    }));
+    ventasProductosFiltrados = [...ventasProductos];
+    renderVentasProductos();
+
+    const sectorsRes = await api('/api/admin/sectores');
+    ventasSectores = (sectorsRes.sectores || []).filter(s => s.activo !== 0).map(s => ({
+      id: s.id,
+      nombre: s.nombre,
+      precioEnvio: Number(s.precioEnvio || 0)
+    }));
+    document.getElementById('despachoSector').innerHTML =
+      '<option value="">-- Seleccionar sector --</option>' +
+      ventasSectores.map(s => '<option value="' + s.id + '">' + esc(s.nombre) + ' (' + fmt(s.precioEnvio) + ')</option>').join('');
+
+    renderVentasCarrito();
   }
 
   /* ══════════════════════════════════════════
@@ -1044,7 +1983,9 @@
     coupons: loadCoupons,
     ingredients: loadIngredients,
     slider: loadSlider,
-    canjes: loadCanjes
+    canjes: loadCanjes,
+    ingresos: loadIngresos,
+    ventas: loadVentas
   };
 
   /* ══════════════════════════════════════════
@@ -1271,7 +2212,7 @@
   };
 
   window.deleteNotif = async (id) => {
-    if (!confirm('¿Eliminar esta notificación?')) return;
+    if (!(await uiConfirm('¿Eliminar esta notificación?', 'Confirmar'))) return;
     try {
       await fetch(`/api/admin/notificaciones/${id}`, { method: 'DELETE' });
       loadNotificaciones();
