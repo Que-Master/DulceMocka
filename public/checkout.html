@@ -4,16 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Finalizar compra — Dulce Mocka</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/png" href="/assets/icons/isotipo.png">
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
-          <a class="logo" href="/">Dulce Mocka</a>
+          <a class="logo" href="/" aria-label="Dulce Mocka">
+            <img class="logo-img" src="/assets/icons/logotipo.png" alt="Dulce Mocka">
+          </a>
         </div>
       <div class="actions">
-        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="icon icon-with-img" href="/cart.html" aria-label="Carrito" title="Carrito">
+          <img class="ui-icon" src="/assets/icons/carrito.png" alt="Carrito">
+        </a>
         <a class="btn outline" href="/login.html">Iniciar sesión</a>
       </div>
     </div>
@@ -111,9 +116,9 @@
     </div>
   </footer>
 
-  <script src="/ui-dialog.js"></script>
-  <script src="/auth-ui.js"></script>
-  <script src="/notificaciones.js"></script>
-  <script src="/checkout.js"></script>
+  <script src="/js/ui-dialog.js"></script>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/notificaciones.js"></script>
+  <script src="/js/checkout.js"></script>
 </body>
 </html>

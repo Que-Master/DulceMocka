@@ -62,7 +62,7 @@ function renderCategorias() {
   // Botón especial de Mocka Points: solo baja a la sección inferior
   const mpBtn = document.createElement('button');
   mpBtn.className = 'pill mp-pill' + (categoriaActiva === 'mockapoints' ? ' active' : '');
-  mpBtn.textContent = '🏆 Mocka Points';
+  mpBtn.innerHTML = '<img class="pill-icon" src="/assets/icons/trofeoIcon.png" alt=""> Mocka Points';
   mpBtn.onclick = () => {
     categoriaActiva = 'mockapoints';
     updateCategoriaActive();
@@ -90,7 +90,7 @@ function updateCategoriaActive() {
     const btnText = btn.textContent;
     if (categoriaActiva === null && btnText === 'Todos') {
       btn.classList.add('active');
-    } else if (categoriaActiva === 'mockapoints' && btnText === '🏆 Mocka Points') {
+    } else if (categoriaActiva === 'mockapoints' && btn.classList.contains('mp-pill')) {
       btn.classList.add('active');
     } else if (btnText === (categorias.find(c => c.id == categoriaActiva) || {}).nombre) {
       btn.classList.add('active');
@@ -204,13 +204,8 @@ async function initMockaPoints() {
         userPoints = saldoData.puntos || 0;
         document.getElementById('mpBalance').style.display = '';
         document.getElementById('mpBalanceValue').textContent = userPoints.toLocaleString('es-CL');
-        document.getElementById('mpLoginMsg').style.display = 'none';
-      } else {
-        document.getElementById('mpLoginMsg').style.display = '';
       }
-    } catch (e) {
-      document.getElementById('mpLoginMsg').style.display = '';
-    }
+    } catch (e) {}
 
     const grid = document.getElementById('mpProductsGrid');
     grid.innerHTML = '';
@@ -225,7 +220,7 @@ async function initMockaPoints() {
       } else {
         const imgDiv = document.createElement('div');
         imgDiv.className = 'card-img';
-        imgDiv.textContent = '🏆';
+        imgDiv.innerHTML = '<img class="card-icon" src="/assets/icons/trofeoIcon.png" alt="Mocka Points">';
         top.appendChild(imgDiv);
       }
 
@@ -243,7 +238,7 @@ async function initMockaPoints() {
 
       const pointsInfo = document.createElement('div');
       pointsInfo.className = 'price mp-cost';
-      pointsInfo.innerHTML = '🏆 ' + p.costoMockaPoints + ' pts';
+      pointsInfo.innerHTML = '<img class="pill-icon" src="/assets/icons/trofeoIcon.png" alt=""> ' + p.costoMockaPoints + ' pts';
 
       const btn = document.createElement('button');
       btn.className = 'vermas mp-redeem';

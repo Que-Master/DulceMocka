@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mis Pedidos — Dulce Mocka</title>
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/auth.css">
+  <link rel="icon" type="image/png" href="/assets/icons/isotipo.png">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/auth.css">
   <style>
     .orders-container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
     .orders-title { font-size: 1.6rem; font-weight: 800; color: #1e1b4b; margin-bottom: .5rem; }
@@ -60,11 +61,15 @@
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
-        <a class="logo" href="/">Dulce Mocka</a>
+        <a class="logo" href="/" aria-label="Dulce Mocka">
+          <img class="logo-img" src="/assets/icons/logotipo.png" alt="Dulce Mocka">
+        </a>
       </div>
 
       <div class="actions">
-        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="icon icon-with-img" href="/cart.html" aria-label="Carrito" title="Carrito">
+          <img class="ui-icon" src="/assets/icons/carrito.png" alt="Carrito">
+        </a>
         <a class="btn outline" href="/login.html">Iniciar sesión</a>
       </div>
     </div>
@@ -123,8 +128,8 @@
     <a class="whatsapp-fab" href="https://wa.me/56938993211" target="_blank" rel="noopener">💬</a>
   </footer>
 
-  <script src="/auth-ui.js"></script>
-  <script src="/notificaciones.js"></script>
-  <script src="/mis-pedidos.js"></script>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/notificaciones.js"></script>
+  <script src="/js/mis-pedidos.js"></script>
 </body>
 </html>

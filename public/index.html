@@ -4,18 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dulce Mocka — Tienda de Dulces</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/png" href="/assets/icons/isotipo.png">
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
-        <a class="logo" href="/">Dulce Mocka</a>
+        <a class="logo" href="/" aria-label="Dulce Mocka">
+          <img class="logo-img" src="/assets/icons/logotipo.png" alt="Dulce Mocka">
+        </a>
       </div>
 
       <div class="actions">
-        <a class="icon mp-nav-link" href="#mockapoints" title="Mocka Points">🏆</a>
-        <a class="icon" href="/cart.html">🛒 Carrito</a>
+        <a class="icon icon-with-img mp-nav-link" href="#mockapoints" title="Mocka Points" aria-label="Mocka Points">
+          <img class="ui-icon" src="/assets/icons/trofeoIcon.png" alt="Mocka Points">
+        </a>
+        <a class="icon icon-with-img" href="/cart.html">
+          <img class="ui-icon" src="/assets/icons/carrito.png" alt="Carrito">
+        </a>
         <a class="btn outline" href="/login.html">Iniciar sesión</a>
       </div>
     </div>
@@ -53,22 +60,15 @@
     <!-- ─── MOCKA POINTS ─── -->
     <section id="mockapoints" class="mockapoints-section container">
       <div class="mockapoints-header">
-        <h3>🏆 Mocka Points</h3>
+        <h3 class="mockapoints-title"><img class="ui-icon" src="/assets/icons/trofeoIcon.png" alt=""> Mocka Points</h3>
         <div class="mockapoints-balance" id="mpBalance" style="display:none">
           Tu saldo: <strong id="mpBalanceValue">0</strong> puntos
         </div>
       </div>
       <p class="mockapoints-desc">Canjea tus Mocka Points por productos exclusivos. Ganas 50 puntos por cada $5.000 que gastes.</p>
       <div class="grid" id="mpProductsGrid"></div>
-      <div id="mpLoginMsg" class="mockapoints-login" style="display:none">
-        <a href="/login.html">Inicia sesión</a> para ver tu saldo y canjear productos.
-      </div>
     </section>
 
-    <section id="contacto" class="contacto container">
-      <h3>Contacto</h3>
-      <p>Escríbenos a <a href="mailto:info@dulcemocka.com">info@dulcemocka.com</a> o visítanos en la tienda.</p>
-    </section>
   </main>
 
   <footer class="site-footer">
@@ -90,9 +90,9 @@
 
         <div class="footer-contact">
           <h4>Contacto</h4>
-          <p><a href="https://wa.me/56938993211" target="_blank" rel="noopener">📞 WhatsApp: +56 9 3899 3211</a></p>
-          <p><a href="mailto:tquesillos@gmail.com">✉ tquesillos@gmail.com</a></p>
-          <p><a href="https://instagram.com/dulce_shakesmocka" target="_blank" rel="noopener">📷 @dulce_shakesmocka</a></p>
+          <p><a class="footer-contact-link" href="https://wa.me/56938993211" target="_blank" rel="noopener"><img class="ui-icon" src="/assets/icons/whatsappIcon.png" alt="WhatsApp"> WhatsApp: +56 9 3899 3211</a></p>
+          <p><a class="footer-contact-link" href="mailto:tquesillos@gmail.com"><img class="ui-icon" src="/assets/icons/gmailIcon.png" alt="Correo"> tquesillos@gmail.com</a></p>
+          <p><a class="footer-contact-link" href="https://instagram.com/dulce_shakesmocka" target="_blank" rel="noopener"><img class="ui-icon" src="/assets/icons/instagramIcon.png" alt="Instagram"> @dulce_shakesmocka</a></p>
         </div>
       </div>
     </div>
@@ -104,11 +104,13 @@
       </div>
     </div>
 
-    <a class="whatsapp-fab" href="https://wa.me/56938993211" target="_blank" rel="noopener">💬</a>
+    <a class="whatsapp-fab" href="https://wa.me/56938993211" target="_blank" rel="noopener" aria-label="WhatsApp">
+      <img class="fab-icon" src="/assets/icons/whatsappIcon.png" alt="WhatsApp">
+    </a>
   </footer>
-  <script src="/ui-dialog.js"></script>
-  <script src="/auth-ui.js"></script>
-  <script src="/notificaciones.js"></script>
-  <script src="/app.js"></script>
+  <script src="/js/ui-dialog.js"></script>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/notificaciones.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>

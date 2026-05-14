@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin — Dulce Mocka</title>
-  <link rel="stylesheet" href="/admin.css">
+  <link rel="icon" type="image/png" href="/assets/icons/isotipo.png">
+  <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body>
   <div class="admin-layout">
@@ -153,6 +154,7 @@
             <h3>Gestión de Pedidos</h3>
             <div class="filter-tabs" id="ordersFilter">
               <button class="filter-tab active" data-filter="proceso"><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-xs" alt=""> En proceso</button>
+              <button class="filter-tab" data-filter="pendientes"><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-xs" alt=""> Pendientes</button>
               <button class="filter-tab" data-filter="finalizados"><img src="/assets/icons/guardarIcon.png" class="admin-icon admin-icon-xs" alt=""> Finalizados</button>
               <button class="filter-tab" data-filter="todos"><img src="/assets/icons/pedidosIcon.png" class="admin-icon admin-icon-xs" alt=""> Todos</button>
             </div>
@@ -712,7 +714,7 @@
     </div>
   </div>
 
-  <script src="/ui-dialog.js"></script>
-  <script src="/admin.js"></script>
+  <script src="/js/ui-dialog.js"></script>
+  <script src="/js/admin.js"></script>
 </body>
 </html>

@@ -274,6 +274,36 @@ CREATE TABLE IF NOT EXISTS configuracion_local (
 -- Insertar configuración por defecto
 INSERT IGNORE INTO configuracion_local (id) VALUES ('config');
 
+-- ============================================
+-- INSERCIONES POR DEFECTO
+-- ============================================
+
+-- Roles
+INSERT IGNORE INTO rol (id, nombre, descripcion, activo) VALUES
+('rol-admin-1', 'admin', 'Administrador del sistema', 1),
+('rol-cliente-1', 'cliente', 'Cliente de la tienda', 1);
+
+-- Tipos de entrega
+INSERT IGNORE INTO tipoentrega (id, nombre, descripcion) VALUES
+('delivery-1', 'Delivery', 'Entrega a domicilio'),
+('recogida-1', 'Recogida', 'Recoger en tienda');
+
+-- Métodos de pago
+INSERT IGNORE INTO metodopago (id, nombre, descripcion, activo) VALUES
+('metodo-efectivo-1', 'efectivo', 'Pago en efectivo', 1),
+('metodo-transferencia-1', 'transferencia', 'Pago por transferencia bancaria', 1),
+('metodo-debito-1', 'debito', 'Pago con tarjeta de débito', 1),
+('metodo-credito-1', 'credito', 'Pago con tarjeta de crédito', 1);
+
+-- Estados de pedido (en orden)
+INSERT IGNORE INTO estadopedido (id, nombre, descripcion, orden) VALUES
+('estado-pendiente-1', 'Pendiente', 'Pedido pendiente de procesamiento', 1),
+('estado-preparacion-1', 'En Preparación', 'La tienda está preparando tu pedido', 2),
+('estado-listo-1', 'Listo para Retiro', 'El pedido está listo para ser retirado', 3),
+('estado-camino-1', 'En Camino', 'Tu pedido está en camino', 4),
+('estado-entregado-1', 'Entregado', 'Pedido entregado con éxito', 5),
+('estado-cancelado-1', 'Cancelado', 'Pedido cancelado', 6);
+
 -- Notificaciones globales (broadcast del admin)
 CREATE TABLE IF NOT EXISTS notificacion_global (
   id INT AUTO_INCREMENT PRIMARY KEY,

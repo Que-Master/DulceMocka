@@ -59,6 +59,7 @@ async function ensureCajaTable() {
       cierreAt DATETIME NULL,
       ingresosTurno DECIMAL(12,2) NOT NULL DEFAULT 0,
       montoCierre DECIMAL(12,2) NOT NULL DEFAULT 0,
+      desglosePago JSON NULL,
       abiertoPorUsuarioId VARCHAR(36) NULL,
       cerradoPorUsuarioId VARCHAR(36) NULL,
       creadoEn DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -67,6 +68,19 @@ async function ensureCajaTable() {
       INDEX idx_caja_cierreAt (cierreAt)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  const hasDesglosePago = await q(`
+    SELECT COLUMN_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'cajacierre'
+      AND COLUMN_NAME = 'desglosePago'
+    LIMIT 1
+  `);
+
+  if (!hasDesglosePago.length) {
+    await q('ALTER TABLE cajacierre ADD COLUMN desglosePago JSON NULL AFTER montoCierre');
+  }
 }
 
 const AdminController = {
@@ -235,10 +249,17 @@ const AdminController = {
       const ingresosTurno = Number((report.totals && report.totals.totalIngresos) || 0);
       const montoApertura = Number(abierta.montoApertura || 0);
       const montoCierre = montoApertura + ingresosTurno;
+      
+      // Preparar desglose por método de pago
+      const desglosePago = (report.byPaymentMethod || []).map(method => ({
+        metodoPago: method.metodoPago,
+        totalPedidos: method.totalPedidos,
+        totalIngresos: Number(method.totalIngresos || 0)
+      }));
 
       await q(
-        'UPDATE cajacierre SET abierto = 0, cierreAt = NOW(), ingresosTurno = ?, montoCierre = ?, cerradoPorUsuarioId = ? WHERE id = ?',
-        [ingresosTurno, montoCierre, req.user ? req.user.id : null, abierta.id]
+        'UPDATE cajacierre SET abierto = 0, cierreAt = NOW(), ingresosTurno = ?, montoCierre = ?, desglosePago = ?, cerradoPorUsuarioId = ? WHERE id = ?',
+        [ingresosTurno, montoCierre, JSON.stringify(desglosePago), req.user ? req.user.id : null, abierta.id]
       );
 
       const [cierre] = await q('SELECT * FROM cajacierre WHERE id = ? LIMIT 1', [abierta.id]);
@@ -250,7 +271,8 @@ const AdminController = {
           cierreAt: cierre.cierreAt,
           montoApertura: Number(cierre.montoApertura || 0),
           ingresosTurno: Number(cierre.ingresosTurno || 0),
-          montoCierre: Number(cierre.montoCierre || 0)
+          montoCierre: Number(cierre.montoCierre || 0),
+          desglosePago: desglosePago
         }
       });
     } catch (err) {
@@ -271,13 +293,35 @@ const AdminController = {
         [fecha]
       );
 
-      const cierres = (rows || []).map((r) => ({
-        id: r.id,
-        aperturaAt: r.aperturaAt,
-        cierreAt: r.cierreAt,
-        montoApertura: Number(r.montoApertura || 0),
-        ingresosTurno: Number(r.ingresosTurno || 0),
-        montoCierre: Number(r.montoCierre || 0)
+      const cierres = await Promise.all((rows || []).map(async (r) => {
+        let desglosePago = [];
+        try {
+          if (r.desglosePago) {
+            desglosePago = typeof r.desglosePago === 'string' ? JSON.parse(r.desglosePago) : r.desglosePago;
+          }
+        } catch (e) {
+          // Si hay error parseando, dejamos array vacío
+        }
+        
+        // Si no hay desglose guardado, calcular desde los pedidos
+        if (desglosePago.length === 0 && r.aperturaAt && r.cierreAt) {
+          const report = await getIngresosReport(q, r.aperturaAt, r.cierreAt);
+          desglosePago = (report.byPaymentMethod || []).map(method => ({
+            metodoPago: method.metodoPago,
+            totalPedidos: method.totalPedidos,
+            totalIngresos: Number(method.totalIngresos || 0)
+          }));
+        }
+        
+        return {
+          id: r.id,
+          aperturaAt: r.aperturaAt,
+          cierreAt: r.cierreAt,
+          montoApertura: Number(r.montoApertura || 0),
+          ingresosTurno: Number(r.ingresosTurno || 0),
+          montoCierre: Number(r.montoCierre || 0),
+          desglosePago: desglosePago
+        };
       }));
 
       res.json({ cierres });
@@ -508,6 +552,12 @@ const AdminController = {
       const localAbierto = !configLocal || Number(configLocal.abierto) === 1;
       if (!localAbierto) {
         return res.status(400).json({ error: 'El local está cerrado. No se pueden registrar ventas en local.' });
+      }
+
+      await ensureCajaTable();
+      const [cajaAbierta] = await q('SELECT id FROM cajacierre WHERE abierto = 1 ORDER BY aperturaAt DESC LIMIT 1');
+      if (!cajaAbierta) {
+        return res.status(400).json({ error: 'La caja está cerrada. Debes abrir caja antes de finalizar una venta en local.' });
       }
 
       const {
